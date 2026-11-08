@@ -1,0 +1,25 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "group": "worldedit_axe",
+  "pattern": [
+    "BI",
+    "IS",
+    " S"
+  ],
+  "key": {
+    "B": {
+      "item": "allthemodium:unobtainium_block"
+    },
+    "I": {
+      "item": "allthemodium:unobtainium_ingot"
+    },
+    "S": {
+      "item": "minecraft:stick"
+    }
+  },
+  "result": {
+    "id": "worldedit:axe",
+    "count": 1
+  }
+}

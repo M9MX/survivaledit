@@ -1,0 +1,58 @@
+modLoader = "javafml"
+loaderVersion = "[3,)"
+issueTrackerURL = "https://discord.gg/enginehub"
+license = "GPLv3"
+
+[[mods]]
+modId = "worldedit"
+version = "${version}"
+displayName = "SurvivalEdit"
+displayURL = "https://enginehub.org/worldedit/"
+description = '''
+WorldEdit tuned for survival play: edits are paid for out of an Applied Energistics 2 network and are
+applied gradually so large edits do not stall the server.
+'''
+authors = "EngineHub, SurvivalEdit"
+logoFile = "assets/survivaledit/icon.png"
+displayTest = "IGNORE_SERVER_VERSION"
+
+[[mixins]]
+config = "worldedit-neoforge.mixins.json"
+
+[[accessTransformers]]
+file = "META-INF/accesstransformer.cfg"
+
+[[dependencies.worldedit]]
+modId = "minecraft"
+type = "required"
+versionRange = "[${minecraftVersion},${nextMajorMinecraftVersion})"
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies.worldedit]]
+modId = "neoforge"
+type = "required"
+versionRange = "[${neoVersion},)"
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies.worldedit]]
+modId = "ae2"
+type = "optional"
+versionRange = "[19.2.0,)"
+ordering = "AFTER"
+side = "BOTH"
+
+[[dependencies.worldedit]]
+modId = "ae2wtlib"
+type = "optional"
+versionRange = "*"
+ordering = "AFTER"
+side = "BOTH"
+
+[[dependencies.worldedit]]
+modId = "curios"
+type = "optional"
+versionRange = "*"
+ordering = "AFTER"
+side = "BOTH"

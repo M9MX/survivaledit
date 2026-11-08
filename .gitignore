@@ -1,0 +1,56 @@
+.classpath
+.project
+.settings
+eclipse
+.idea
+*.iml
+*.ipr
+*.iws
+
+bin
+build
+target
+.gradle
+forge-download
+out
+run
+.jqwik-database
+
+/dependency-reduced-pom.xml
+*-private.sh
+
+# i18n
+worldedit-core/src/main/resources/lang/*
+!worldedit-core/src/main/resources/lang/strings.json
+
+# Reference checkouts used while developing SurvivalEdit
+_ref/
+
+# Local build/runtime and vendored stuff not meant for the personal repo
+worldedit-neoforge/build/
+worldedit-neoforge/run/
+worldedit-neoforge/build/libs/*-dist*.jar
+worldedit-neoforge/build/libs/*-dist-sources.jar
+worldedit-neoforge/build/libs/*-dist-javadoc.jar
+
+.gradle/
+.idea/
+.freebuff/
+build/
+libs/
+config/
+contrib/
+attic/
+
+# Gradle daemon caches and wrapper downloads
+.gradle//daemon
+.gradle//native
+.gradle//wrapper/dists
+/.github/ISSUE_TEMPLATE/bug_report.yml
+/.github/codecov.yml
+/.github/ISSUE_TEMPLATE/feature_request.yml
+/.github/FUNDING.yml
+/.github/workflows/stale.yml
+/.github/workflows/gradle.yml
+/.github/CODEOWNERS
+/.github/ISSUE_TEMPLATE/config.yml
