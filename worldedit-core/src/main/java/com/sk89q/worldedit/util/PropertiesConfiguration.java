@@ -142,6 +142,15 @@ public class PropertiesConfiguration extends LocalConfiguration {
         initializeSnapshotConfiguration(snapshotsDir, experimentalSnapshots);
 
         path.getParentFile().mkdirs();
+        store();
+    }
+
+    /**
+     * Writes the configuration back to its file.
+     *
+     * <p>A platform with its own default file overrides this to control what the file looks like.</p>
+     */
+    protected void store() {
         try (OutputStream output = new FileOutputStream(path)) {
             properties.store(output, "Don't put comments; they get removed");
         } catch (IOException e) {

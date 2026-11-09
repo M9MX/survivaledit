@@ -1,5 +1,5 @@
 /*
- * WorldEdit, a Minecraft world manipulation toolkit
+ * SurvivalEdit, a WorldEdit fork tuned for survival play
  * Copyright (C) sk89q <http://www.sk89q.com>
  * Copyright (C) WorldEdit team and contributors
  *
@@ -19,25 +19,34 @@
 
 package com.sk89q.worldedit.neoforge.survival;
 
-import com.sk89q.worldedit.extent.Extent;
+import com.sk89q.worldedit.math.BlockVector3;
 import com.sk89q.worldedit.util.collection.BlockMap;
-import com.sk89q.worldedit.world.World;
 import com.sk89q.worldedit.world.block.BaseBlock;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.Item;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Deque;
+import java.util.List;
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
  * Applies survival edits gradually, one slice per server tick.
  *
- * <p>Jobs run in the order they were queued. Because an edit is fully paid for before it is
- * enqueued, a job that could not be paid for never reaches the queue. Keeping the order also means
- * an undo or a redo issued straight after an edit sees the blocks that edit placed.</p>
+ * <p>Jobs run in the order they were queued, and the per-tick budget is shared between all of them,
+ * so ten players pasting at once cost the same as one: the work is spread out instead of stacking
+ * up. Because an edit is fully paid for before it is queued, a job that could not be paid for never
+ * reaches the queue. Keeping the order also means an undo or a redo issued straight after an edit
+ * sees the blocks that edit placed.</p>
+ *
+ * <p>A job that is dropped before it is finished, on shutdown for example, is finished anyway: it
+ * stores what it did and returns the items for the blocks it never placed.</p>
  */
 public final class SurvivalEditQueue {
 
@@ -53,7 +62,7 @@ public final class SurvivalEditQueue {
      */
     public static boolean isBusy(ServerPlayer player) {
         for (SurvivalEditJob job : JOBS) {
-            if (job.belongsTo(player)) {
+            if (job.player.getUUID().equals(player.getUUID())) {
                 return true;
             }
         }
@@ -65,9 +74,8 @@ public final class SurvivalEditQueue {
      *
      * @return {@code null} when the edit may run, otherwise why it may not
      */
-    static @Nullable String reject(ServerPlayer player, BlockMap<BaseBlock> blocks,
-                                  SurvivalEditJob.Kind kind) {
-        if (blocks.isEmpty()) {
+    static @Nullable String reject(ServerPlayer player, int blocks, SurvivalEditJob.Kind kind) {
+        if (blocks == 0) {
             return null;
         }
         if (kind == SurvivalEditJob.Kind.FREE) {
@@ -77,9 +85,9 @@ public final class SurvivalEditQueue {
         if (!player.isAlive()) {
             return "edits are not allowed in your current state";
         }
-        int max = SurvivalMode.maxQueuedBlocks();
-        if (max > 0 && blocks.size() > max) {
-            return "this edit changes " + blocks.size() + " blocks, which is above the limit of " + max;
+        int max = SurvivalMode.maxBlocksPerEdit();
+        if (max > 0 && blocks > max) {
+            return "this edit changes " + blocks + " blocks, which is above the limit of " + max;
         }
         return null;
     }
@@ -87,13 +95,24 @@ public final class SurvivalEditQueue {
     /**
      * Queues an edit that has already been paid for.
      */
-    static void enqueue(ServerPlayer player, Extent target, World world, BlockMap<BaseBlock> blocks,
-                        SurvivalEditJob.Kind kind) {
+    static void enqueue(ServerPlayer player, ServerLevel level, BlockMap<BaseBlock> blocks,
+                        SurvivalEditJob.Kind kind, Map<Item, Long> charged) {
         if (blocks.isEmpty()) {
             return;
         }
-        JOBS.addLast(new SurvivalEditJob(player, target, world, blocks, kind));
-        LOGGER.info("SurvivalEdit: queued {} blocks for {}", blocks.size(), player.getName().getString());
+        JOBS.addLast(SurvivalEditJob.edit(player, kind, level, blocks, charged));
+    }
+
+    /**
+     * Queues the undo or redo of a stored edit.
+     */
+    static void enqueueReplay(ServerPlayer player, ServerLevel level, SurvivalEditJob.Kind kind,
+                              SurvivalEditRecord record, BlockVector3[] positions, BaseBlock[] targets,
+                              Map<Item, Long> charged) {
+        if (positions.length == 0) {
+            return;
+        }
+        JOBS.addLast(SurvivalEditJob.replay(player, kind, level, record, positions, targets, charged));
     }
 
     /**
@@ -102,28 +121,48 @@ public final class SurvivalEditQueue {
     public static void tick(MinecraftServer server) {
         int budget = SurvivalMode.blocksPerTick();
         int jobs = JOBS.size();
-        for (int i = 0; i < jobs; i++) {
+        for (int i = 0; i < jobs && budget > 0; i++) {
             SurvivalEditJob job = JOBS.pollFirst();
             if (job == null) {
                 return;
             }
-            if (!job.isOnline()) {
-                job.cancel();
+
+            int used;
+            try {
+                used = job.tick(budget);
+            } catch (Throwable t) {
+                LOGGER.error("SurvivalEdit: an edit failed for {}", job.player.getName().getString(), t);
+                SurvivalMessages.error(job.player, "The edit stopped because of an error. What was applied so far is kept.");
+                budget = 0;
+                finish(job);
                 continue;
             }
-            if (!job.tick(budget)) {
+
+            budget -= used;
+            if (job.isDone()) {
+                finish(job);
+            } else {
                 JOBS.addLast(job);
             }
         }
     }
 
     /**
-     * Stops any pending work, for example when the server shuts down.
+     * Stops any pending work, storing what was applied and returning the rest of the payment.
      */
     public static void clear() {
-        for (SurvivalEditJob job : JOBS) {
-            job.cancel();
-        }
+        List<SurvivalEditJob> jobs = new ArrayList<>(JOBS);
         JOBS.clear();
+        for (SurvivalEditJob job : jobs) {
+            finish(job);
+        }
+    }
+
+    private static void finish(SurvivalEditJob job) {
+        try {
+            job.finish();
+        } catch (Throwable t) {
+            LOGGER.error("SurvivalEdit: could not finish an edit for {}", job.player.getName().getString(), t);
+        }
     }
 }

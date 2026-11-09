@@ -42,6 +42,9 @@ config/
 contrib/
 attic/
 
+# Do not ignore this source directory - SurvivalEditConfig.java is real source code
+!worldedit-neoforge/src/main/java/com/sk89q/worldedit/neoforge/config/
+
 # Gradle daemon caches and wrapper downloads
 .gradle//daemon
 .gradle//native

@@ -25,13 +25,16 @@ import com.sk89q.worldedit.extent.Extent;
 import com.sk89q.worldedit.function.operation.Operation;
 import com.sk89q.worldedit.function.operation.RunContext;
 import com.sk89q.worldedit.math.BlockVector3;
+import com.sk89q.worldedit.neoforge.NeoForgeAdapter;
 import com.sk89q.worldedit.util.collection.BlockMap;
 import com.sk89q.worldedit.world.World;
 import com.sk89q.worldedit.world.block.BaseBlock;
 import com.sk89q.worldedit.world.block.BlockStateHolder;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Item;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -51,15 +54,14 @@ public class SurvivalEditExtent extends AbstractBufferingExtent {
     private final World world;
     private final SurvivalEditJob.Kind kind;
     private BlockMap<BaseBlock> blockMap = BlockMap.createForBaseBlock();
+    /** Protected blocks this edit would overwrite, with how many positions of each. */
+    private final Map<String, Integer> protectedBlocks = new LinkedHashMap<>();
 
     public SurvivalEditExtent(Extent extent, World world, ServerPlayer player, SurvivalEditJob.Kind kind) {
         super(extent);
         this.world = world;
         this.player = player;
         this.kind = kind;
-        if (kind == SurvivalEditJob.Kind.PAID) {
-            SurvivalPendingEdit.begin(player.getUUID());
-        }
     }
 
     @Override
@@ -71,6 +73,14 @@ public class SurvivalEditExtent extends AbstractBufferingExtent {
         // being charged for nothing.
         if (existing != null && existing.equals(newBlock)) {
             return false;
+        }
+
+        // Only the block already in the world can be protected: an edit may build next to a
+        // protected block, never over it. The first write at a position is the one that sees the
+        // world, so later writes of the same position are not counted again.
+        if (kind == SurvivalEditJob.Kind.PAID && existing != null && blockMap.get(location) == null
+            && SurvivalMode.isProtected(existing.getBlockType())) {
+            protectedBlocks.merge(existing.getBlockType().id(), 1, Integer::sum);
         }
 
         blockMap.put(location, newBlock);
@@ -90,55 +100,105 @@ public class SurvivalEditExtent extends AbstractBufferingExtent {
         return new Operation() {
             @Override
             public Operation resume(RunContext run) {
-                // The edit is complete and costed, so WorldEdit can talk to the player again.
-                SurvivalPendingEdit.end(player.getUUID());
+                // The edit is complete and costed, so WorldEdit can talk to the player again once
+                // the report below is out.
+                SurvivalPendingEdit.begin(player.getUUID());
+                try {
+                    if (blockMap.isEmpty()) {
+                        return null;
+                    }
 
-                if (blockMap.isEmpty()) {
+                    // Protected blocks are checked before the edit is costed, so an edit that would
+                    // destroy one takes nothing and writes nothing. The whole edit is refused
+                    // rather than the offending positions being skipped: half a build is worse
+                    // than none.
+                    if (!protectedBlocks.isEmpty()) {
+                        SurvivalMessages.error(player, "Edit cancelled: it would overwrite "
+                            + describeProtected() + ". Those blocks are protected in survival;"
+                            + " see survival.protected-blocks in worldedit.properties.");
+                        protectedBlocks.clear();
+                        blockMap.clear();
+                        return null;
+                    }
+
+                    // The queue owns the buffer from here, and a later flush of the same session
+                    // starts a new one.
+                    BlockMap<BaseBlock> pending = blockMap;
+                    blockMap = BlockMap.createForBaseBlock();
+
+                    int size = pending.size();
+                    String limit = SurvivalEditQueue.reject(player, size, kind);
+                    if (limit != null) {
+                        SurvivalMessages.error(player, "Edit cancelled: " + limit + ".");
+                        return null;
+                    }
+
+                    ServerLevel level = level();
+                    if (level == null) {
+                        SurvivalMessages.error(player, "Edit cancelled: that world is not available.");
+                        return null;
+                    }
+
+                    if (kind == SurvivalEditJob.Kind.FREE) {
+                        // Nothing is charged and WorldEdit reports the completion itself, so the
+                        // edit only has to be applied a chunk at a time.
+                        SurvivalEditQueue.enqueue(player, level, pending, kind, Map.of());
+                        return null;
+                    }
+
+                    Map<Item, Long> cost = ItemLedger.costOf(pending);
+                    SurvivalPayment.Result payment = SurvivalPayment.charge(player, cost);
+                    if (!payment.paid()) {
+                        SurvivalMessages.error(player, "Edit cancelled: " + payment.reason() + ".");
+                        return null;
+                    }
+
+                    SurvivalEditQueue.enqueue(player, level, pending, kind, cost);
+                    SurvivalMessages.info(player, success(size, cost));
                     return null;
+                } finally {
+                    SurvivalPendingEdit.end(player.getUUID());
                 }
-
-                // The queue owns the buffer from here, and a later flush of the same session
-                // starts a new one.
-                BlockMap<BaseBlock> pending = blockMap;
-                blockMap = BlockMap.createForBaseBlock();
-
-                int size = pending.keySet().size();
-                Map<Item, Long> cost = ItemLedger.costOf(pending);
-
-                String limit = SurvivalEditQueue.reject(player, pending, kind);
-                if (limit != null) {
-                    SurvivalMessages.error(player, "Edit cancelled: " + limit + ".");
-                    return null;
-                }
-
-                if (kind == SurvivalEditJob.Kind.FREE) {
-                    // Nothing is charged and WorldEdit reports the completion itself, so the edit
-                    // only has to be applied a chunk at a time.
-                    SurvivalEditQueue.enqueue(player, getExtent(), world, pending, kind);
-                    return null;
-                }
-
-                if (kind == SurvivalEditJob.Kind.UNDO) {
-                    SurvivalEditQueue.enqueue(player, getExtent(), world, pending, kind);
-                    return null;
-                }
-
-                SurvivalPayment.Result payment = SurvivalPayment.charge(player, cost);
-                if (!payment.paid()) {
-                    SurvivalMessages.error(player, "Edit cancelled: " + payment.reason() + ".");
-                    return null;
-                }
-
-                SurvivalEditQueue.enqueue(player, getExtent(), world, pending, kind);
-                SurvivalMessages.info(player, success(size, cost));
-                return null;
             }
 
             @Override
             public void cancel() {
                 blockMap.clear();
+                protectedBlocks.clear();
             }
         };
+    }
+
+    /** Names the protected blocks in the way, so the player can see what stopped the edit. */
+    private String describeProtected() {
+        StringBuilder out = new StringBuilder();
+        int shown = 0;
+        for (Map.Entry<String, Integer> entry : protectedBlocks.entrySet()) {
+            if (shown == 4) {
+                out.append(" and ").append(protectedBlocks.size() - shown).append(" more");
+                break;
+            }
+            if (shown > 0) {
+                out.append(", ");
+            }
+            out.append(entry.getKey());
+            if (entry.getValue() > 1) {
+                out.append(" x").append(entry.getValue());
+            }
+            shown++;
+        }
+        return out.toString();
+    }
+
+    private ServerLevel level() {
+        if (world != null) {
+            try {
+                return NeoForgeAdapter.adapt(world);
+            } catch (Throwable ignored) {
+                // Fall through to the player's own world.
+            }
+        }
+        return player.level() instanceof ServerLevel level ? level : null;
     }
 
     private static String success(int size, Map<Item, Long> cost) {

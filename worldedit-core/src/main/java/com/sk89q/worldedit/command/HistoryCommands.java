@@ -28,6 +28,7 @@ import com.sk89q.worldedit.command.util.CommandPermissionsConditionGenerator;
 import com.sk89q.worldedit.entity.Player;
 import com.sk89q.worldedit.extension.platform.Actor;
 import com.sk89q.worldedit.extent.inventory.BlockBag;
+import com.sk89q.worldedit.session.HistoryHook;
 import com.sk89q.worldedit.session.UndoContext;
 import com.sk89q.worldedit.util.formatting.text.TextComponent;
 import com.sk89q.worldedit.util.formatting.text.TranslatableComponent;
@@ -62,13 +63,39 @@ public class HistoryCommands {
     )
     @CommandPermissions({"worldedit.history.undo", "worldedit.history.undo.self"})
     public void undo(Actor actor, LocalSession session,
-                     @Arg(desc = "Number of undoes to perform", def = "1")
-                         int times,
+                     @Arg(desc = "Number of undoes to perform, or \"nearest\" for the closest edit", def = "1")
+                         String times,
                      @Arg(name = "player", desc = "Undo this player's operations", def = "")
                          String playerName) throws WorldEditException {
-        times = Math.max(1, times);
+        boolean self = playerName == null || playerName.isEmpty();
+        HistoryHook hook = self ? worldEdit.getHistoryHook() : null;
+
+        if ("nearest".equalsIgnoreCase(times)) {
+            if (hook != null) {
+                hook.undoNearest(actor, session);
+            } else {
+                actor.printError(TextComponent.of("This server has no edit history to search."));
+            }
+            return;
+        }
+
+        int count = parseTimes(actor, times);
+        if (count <= 0) {
+            return;
+        }
+
+        if (hook != null) {
+            hook.undo(actor, session, count);
+            return;
+        }
+
+        undoInMemory(actor, session, count, playerName);
+    }
+
+    private void undoInMemory(Actor actor, LocalSession session, int times, String playerName)
+        throws WorldEditException {
         LocalSession undoSession = session;
-        if (playerName != null) {
+        if (playerName != null && !playerName.isEmpty()) {
             actor.checkPermission("worldedit.history.undo.other");
             undoSession = worldEdit.getSessionManager().findByName(playerName);
             if (undoSession == null) {
@@ -107,12 +134,23 @@ public class HistoryCommands {
     @CommandPermissions({"worldedit.history.redo", "worldedit.history.redo.self"})
     public void redo(Actor actor, LocalSession session,
                      @Arg(desc = "Number of redoes to perform", def = "1")
-                         int times,
+                         String times,
                      @Arg(name = "player", desc = "Redo this player's operations", def = "")
                          String playerName) throws WorldEditException {
-        times = Math.max(1, times);
+        int count = parseTimes(actor, times);
+        if (count <= 0) {
+            return;
+        }
+
+        boolean self = playerName == null || playerName.isEmpty();
+        HistoryHook hook = self ? worldEdit.getHistoryHook() : null;
+        if (hook != null) {
+            hook.redo(actor, session, count);
+            return;
+        }
+
         LocalSession redoSession = session;
-        if (playerName != null) {
+        if (!self) {
             actor.checkPermission("worldedit.history.redo.other");
             redoSession = worldEdit.getSessionManager().findByName(playerName);
             if (redoSession == null) {
@@ -123,7 +161,7 @@ public class HistoryCommands {
         int timesRedone = 0;
         UndoContext.begin(UndoContext.Mode.REDO);
         try {
-            for (int i = 0; i < times; ++i) {
+            for (int i = 0; i < count; ++i) {
                 BlockBag blockBag = actor instanceof Player ? redoSession.getBlockBag((Player) actor) : null;
                 EditSession redone = redoSession.redo(blockBag, actor);
                 if (redone != null) {
@@ -149,9 +187,27 @@ public class HistoryCommands {
         desc = "Clear your history"
     )
     @CommandPermissions("worldedit.history.clear")
-    public void clearHistory(Actor actor, LocalSession session) {
+    public void clearHistory(Actor actor, LocalSession session) throws WorldEditException {
+        HistoryHook hook = worldEdit.getHistoryHook();
+        if (hook != null && hook.clear(actor, session)) {
+            return;
+        }
         session.clearHistory();
         actor.printInfo(TranslatableComponent.of("worldedit.clearhistory.cleared"));
+    }
+
+    /**
+     * Reads an undo/redo count, naming the problem instead of failing the command.
+     *
+     * @return the count, or {@code 0} when the argument was not a number
+     */
+    private static int parseTimes(Actor actor, String value) {
+        try {
+            return Math.max(1, Integer.parseInt(value.trim()));
+        } catch (NumberFormatException e) {
+            actor.printError(TextComponent.of("'" + value + "' is not a number of operations."));
+            return 0;
+        }
     }
 
 }

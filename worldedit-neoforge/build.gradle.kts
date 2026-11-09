@@ -23,6 +23,10 @@ repositories {
         name = "EngineHub"
         url = uri("https://maven.enginehub.org/repo/")
     }
+    maven {
+        name = "Terraformers"
+        url = uri("https://maven.terraformersmc.com/")
+    }
     mavenCentral()
 }
 

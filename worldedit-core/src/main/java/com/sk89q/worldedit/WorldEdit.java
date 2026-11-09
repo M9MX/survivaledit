@@ -51,6 +51,7 @@ import com.sk89q.worldedit.math.BlockVector3;
 import com.sk89q.worldedit.scripting.CraftScriptContext;
 import com.sk89q.worldedit.scripting.CraftScriptEngine;
 import com.sk89q.worldedit.scripting.RhinoCraftScriptEngine;
+import com.sk89q.worldedit.session.HistoryHook;
 import com.sk89q.worldedit.session.SessionManager;
 import com.sk89q.worldedit.util.Direction;
 import com.sk89q.worldedit.util.Location;
@@ -132,6 +133,8 @@ public final class WorldEdit {
     private final ItemFactory itemFactory = new ItemFactory(this);
     private final MaskFactory maskFactory = new MaskFactory(this);
     private final PatternFactory patternFactory = new PatternFactory(this);
+
+    private @Nullable HistoryHook historyHook;
 
     static {
         getVersion();
@@ -241,6 +244,24 @@ public final class WorldEdit {
      */
     public SessionManager getSessionManager() {
         return sessions;
+    }
+
+    /**
+     * Gets the installed history hook, if any.
+     *
+     * @return the hook, or {@code null} when the in-memory history is used
+     */
+    public @Nullable HistoryHook getHistoryHook() {
+        return historyHook;
+    }
+
+    /**
+     * Installs a hook that takes over {@code //undo}, {@code //redo} and {@code //clearhistory}.
+     *
+     * @param historyHook the hook, or {@code null} to go back to the in-memory history
+     */
+    public void setHistoryHook(@Nullable HistoryHook historyHook) {
+        this.historyHook = historyHook;
     }
 
     /**

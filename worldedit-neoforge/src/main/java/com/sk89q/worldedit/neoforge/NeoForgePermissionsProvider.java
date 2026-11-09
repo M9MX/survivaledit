@@ -42,25 +42,25 @@ public interface NeoForgePermissionsProvider {
         public boolean hasPermission(ServerPlayer player, String permission) {
             NeoForgeConfiguration configuration = platform.getConfiguration();
 
-            // Schematic access is always refused to survival players: an edit has to be paid for out
-            // of the player's own storage, and a schematic is a way around that.
-            if (SurvivalMode.isActive()
-                && SurvivalMode.isSurvivalPlayer(player)
-                && SurvivalMode.isDeniedInSurvival(permission)) {
+            // Schematic access is refused to survival players unless survival.allow-schematics is
+            // on: an edit has to be paid for out of the player's own storage, and a schematic is a
+            // way around that.
+            if (SurvivalMode.isSurvivalPlayer(player) && SurvivalMode.isDeniedInSurvival(permission)) {
                 return false;
             }
 
-            // Survival editing: allowed with no operator status or creative mode required. What the
-            // edit costs is decided by the payment engine, which refuses the edit outright when the
-            // player cannot pay for it.
-            if (SurvivalMode.appliesTo(player)
-                && (!SurvivalMode.requireTerminal() || SurvivalMode.hasTerminal(player))) {
-                return true;
+            // SurvivalEdit: survival players need a wireless terminal linked to the ME network to
+            // pay for an edit. Other players (creative, ops, etc.) can edit normally.
+            if (SurvivalMode.isSurvivalPlayer(player)) {
+                // Forced wireless terminal requirement.
+                if (!SurvivalMode.requireTerminal() || SurvivalMode.hasTerminal(player)) {
+                    return true;
+                }
+                return false;
             }
 
-            return configuration.cheatMode
-                || ServerLifecycleHooks.getCurrentServer().getPlayerList().isOp(player.getGameProfile())
-                || (configuration.creativeEnable && player.gameMode.getGameModeForPlayer() == GameType.CREATIVE);
+            return ServerLifecycleHooks.getCurrentServer().getPlayerList().isOp(player.getGameProfile())
+                || player.gameMode.getGameModeForPlayer() == GameType.CREATIVE;
         }
 
         @Override

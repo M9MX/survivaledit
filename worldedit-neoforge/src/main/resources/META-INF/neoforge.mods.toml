@@ -38,14 +38,14 @@ side = "BOTH"
 
 [[dependencies.worldedit]]
 modId = "ae2"
-type = "optional"
+type = "required"
 versionRange = "[19.2.0,)"
 ordering = "AFTER"
 side = "BOTH"
 
 [[dependencies.worldedit]]
 modId = "ae2wtlib"
-type = "optional"
+type = "required"
 versionRange = "*"
 ordering = "AFTER"
 side = "BOTH"
@@ -56,3 +56,10 @@ type = "optional"
 versionRange = "*"
 ordering = "AFTER"
 side = "BOTH"
+
+[[dependencies.worldedit]]
+modId = "modmenu"
+type = "optional"
+versionRange = "[7.0.0,)"
+ordering = "AFTER"
+side = "CLIENT"

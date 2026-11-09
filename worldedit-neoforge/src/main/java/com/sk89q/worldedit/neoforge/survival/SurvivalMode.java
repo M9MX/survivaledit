@@ -19,16 +19,24 @@
 
 package com.sk89q.worldedit.neoforge.survival;
 
-import com.sk89q.worldedit.extension.platform.Actor;
 import com.sk89q.worldedit.entity.Player;
+import com.sk89q.worldedit.extension.platform.Actor;
+import com.sk89q.worldedit.neoforge.NeoForgeAdapter;
 import com.sk89q.worldedit.neoforge.NeoForgeConfiguration;
 import com.sk89q.worldedit.neoforge.NeoForgePlayer;
 import com.sk89q.worldedit.neoforge.NeoForgeWorld;
 import com.sk89q.worldedit.neoforge.NeoForgeWorldEdit;
+import com.sk89q.worldedit.world.block.BlockType;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.tags.TagKey;
 import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.block.Block;
 import net.neoforged.fml.ModList;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -46,17 +54,12 @@ public final class SurvivalMode {
     private static final String WIRELESS_TERMINALS_MOD_ID = "ae2wtlib";
 
     /**
-     * Commands that read or write schematics. These are refused in survival: an edit always has to
-     * come out of the player's own storage, and a schematic is a way around that.
+     * Commands that read or write schematics. These are refused in survival unless they are enabled
+     * in the configuration: an edit always has to come out of the player's own storage, and a
+     * schematic is a way around that.
      */
     private static final Set<String> SCHEMATIC_PERMISSIONS = Set.of(
         "worldedit.schematic",
-        "worldedit.schematic.load",
-        "worldedit.schematic.save",
-        "worldedit.schematic.share",
-        "worldedit.schematic.delete",
-        "worldedit.schematic.formats",
-        "worldedit.schematic.list",
         "worldedit.clipboard.load",
         "worldedit.clipboard.save",
         "worldedit.clipboard.share"
@@ -75,7 +78,7 @@ public final class SurvivalMode {
     private SurvivalMode() {
     }
 
-    static NeoForgeConfiguration config() {
+    static @Nullable NeoForgeConfiguration config() {
         return NeoForgeWorldEdit.inst.getConfig();
     }
 
@@ -88,29 +91,15 @@ public final class SurvivalMode {
         return modList != null && modList.isLoaded(AE2_MOD_ID) && modList.isLoaded(WIRELESS_TERMINALS_MOD_ID);
     }
 
-    /**
-     * Whether survival editing is active at all on this server.
-     *
-     * <p>An edit is buffered whenever the server has survival editing enabled and the player is in
-     * survival mode. Whether the edit actually runs is decided later by the payment engine, which
-     * explains what is missing and asks for items; it never silently applies a free edit, so the
-     * buffering gate must ignore whether the storage mods are present.</p>
-     */
-    public static boolean isActive() {
-        NeoForgeConfiguration config = config();
-        return config != null && config.survivalEnable;
-    }
-
     public static boolean isSurvivalPlayer(ServerPlayer player) {
         return player.gameMode.getGameModeForPlayer() == GameType.SURVIVAL;
     }
 
     /**
-     * Whether survival editing applies to this player, i.e. they are in survival and the server has
-     * survival editing turned on.
+     * Whether survival editing applies to this player, i.e. they are in survival.
      */
     public static boolean appliesTo(ServerPlayer player) {
-        return isActive() && isSurvivalPlayer(player);
+        return isSurvivalPlayer(player);
     }
 
     /**
@@ -130,31 +119,122 @@ public final class SurvivalMode {
 
     /**
      * Whether a permission is denied to a survival player no matter what they carry. Schematics are
-     * always denied, and so is the creative-only wand.
+     * denied unless they are enabled, and so is the creative-only wand.
      */
     public static boolean isDeniedInSurvival(String permission) {
         if (CREATIVE_PERMISSIONS.contains(permission)) {
             return true;
         }
-        if (!config().survivalAllowSchematics && SCHEMATIC_PERMISSIONS.contains(permission)) {
-            return true;
+        if (allowSchematics()) {
+            return false;
         }
-        return permission.startsWith("worldedit.schematic.");
+        return SCHEMATIC_PERMISSIONS.contains(permission) || permission.startsWith("worldedit.schematic.");
     }
 
     /**
-     * Whether survival editing requires a wireless terminal even when the inventory could pay.
+     * Whether survival edits require a wireless terminal even when the inventory could pay.
+     * SurvivalEdit always requires a wireless terminal; there is no setting for this.
      */
     public static boolean requireTerminal() {
-        return config().survivalRequireTerminal;
+        return true;
     }
 
+    // ------------------------------------------------------------------
+    // Protected blocks
+    // ------------------------------------------------------------------
+
+    /** Block tags from the configuration, resolved once and kept for the life of the server. */
+    private static final Map<String, TagKey<Block>> BLOCK_TAGS = new HashMap<>();
+    private static final TagKey<Block> NO_TAG = TagKey.create(
+        Registries.BLOCK, ResourceLocation.fromNamespaceAndPath("survivaledit", "none"));
+
+    /**
+     * Whether a survival edit may not replace this block.
+     *
+     * <p>This is the survival half of WorldEdit's disallowed blocks: it guards the block that is
+     * already in the world, so an edit can never destroy it, and it is checked before the edit is
+     * paid for. Creative-mode edits are not affected, so an operator can still build over one of
+     * these deliberately.</p>
+     */
+    public static boolean isProtected(BlockType type) {
+        NeoForgeConfiguration config = config();
+        if (config == null || type == null) {
+            return false;
+        }
+
+        String id = type.id();
+        int colon = id.indexOf(':');
+        String namespace = colon < 0 ? id : id.substring(0, colon);
+
+        // An exception (!ae2:test) wins over every rule that would protect the block, wherever it
+        // appears in the list. Without that, a whole mod could not be protected with one or two
+        // blocks left out.
+        if (config.survivalAllowedBlocks.contains(id)
+            || config.survivalAllowedMods.contains(namespace)
+            || matchesTag(type, config.survivalAllowedTags)) {
+            return false;
+        }
+
+        return config.survivalProtectedBlocks.contains(id)
+            || config.survivalProtectedMods.contains(namespace)
+            || matchesTag(type, config.survivalProtectedTags);
+    }
+
+    private static boolean matchesTag(BlockType type, Set<String> tags) {
+        if (tags.isEmpty()) {
+            return false;
+        }
+        for (String tag : tags) {
+            if (NeoForgeAdapter.adapt(type).defaultBlockState().is(tagKey(tag))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static TagKey<Block> tagKey(String id) {
+        return BLOCK_TAGS.computeIfAbsent(id, key -> {
+            try {
+                return TagKey.create(Registries.BLOCK, ResourceLocation.parse(key));
+            } catch (RuntimeException e) {
+                // A typo in the configuration must not break edits, it just matches nothing.
+                return NO_TAG;
+            }
+        });
+    }
+
+    // ------------------------------------------------------------------
+    // Configuration
+    // ------------------------------------------------------------------
+
+    /** How many blocks all queued edits together may write per server tick. */
     public static int blocksPerTick() {
-        return Math.max(1, config().survivalBlocksPerTick);
+        NeoForgeConfiguration config = config();
+        return config == null ? 1024 : Math.max(1, config.survivalBlocksPerTick);
     }
 
-    public static int maxQueuedBlocks() {
-        return config().survivalMaxQueuedBlocks;
+    /** How long the applier waits before it starts writing into a new chunk. */
+    public static int perChunkDelayMs() {
+        NeoForgeConfiguration config = config();
+        return config == null ? 0 : Math.max(0, config.survivalPerChunkDelayMs);
+    }
+
+    /** The largest edit that may be made at once, or {@code 0} for no limit. */
+    public static int maxBlocksPerEdit() {
+        NeoForgeConfiguration config = config();
+        return config == null ? 250_000 : config.survivalMaxBlocksPerEdit;
+    }
+
+    /** How many edits are kept per player, or {@code 0} for no limit. */
+    public static int historyLimit() {
+        NeoForgeConfiguration config = config();
+        return config == null ? 250 : Math.max(0, config.survivalHistoryLimit);
+    }
+
+    /** Whether {@code //schem} and the clipboard save/load commands are allowed in survival. */
+    public static boolean allowSchematics() {
+        NeoForgeConfiguration config = config();
+        return config != null && config.survivalAllowSchematics;
     }
 
     /**
@@ -171,13 +251,5 @@ public final class SurvivalMode {
             return world.getWorld().getServer().getPlayerList().getPlayer(player.getUniqueId());
         }
         return null;
-    }
-
-    void dump() {
-        NeoForgeConfiguration config = config();
-        if (config == null) {
-            return;
-        }
-        System.out.println("SurvivalMode::" + config.survivalEnable + "/" + config.survivalRequireTerminal);
     }
 }

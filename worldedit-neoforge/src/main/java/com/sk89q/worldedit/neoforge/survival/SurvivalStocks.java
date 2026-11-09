@@ -19,9 +19,12 @@
 
 package com.sk89q.worldedit.neoforge.survival;
 
+import com.sk89q.worldedit.neoforge.NeoForgeConfiguration;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -30,6 +33,8 @@ import javax.annotation.Nullable;
  * Hands items back to a player: the ME network first, then the inventory, and only then the ground.
  */
 public final class SurvivalStocks {
+
+    private static final Logger LOGGER = LogManager.getLogger();
 
     private SurvivalStocks() {
     }
@@ -48,7 +53,15 @@ public final class SurvivalStocks {
             leftover = new InventoryStock(player).give(leftover);
         }
         if (!leftover.isEmpty()) {
-            drop(player, leftover);
+            NeoForgeConfiguration config = SurvivalMode.config();
+            if (config == null || config.survivalDropIfNetworkIsFull) {
+                drop(player, leftover);
+            } else {
+                // survival.drop-if-network-is-full is off: whatever does not fit is discarded
+                // instead of being spilled on the ground.
+                LOGGER.debug("SurvivalEdit: discarding {} that did not fit for {}",
+                    ItemLedger.describe(leftover), player.getName().getString());
+            }
         }
     }
 

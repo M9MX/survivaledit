@@ -1,85 +1,91 @@
 <h1>
-    <img src="worldedit-logo.svg" alt="WorldEdit" width="400" /> 
+    <img src="worldedit-logo.svg" alt="SurvivalEdit" width="400" />
 </h1>
 
-**A Minecraft Map Editor... that runs in-game!**
+**Survival-friendly WorldEdit fork for NeoForge.**
 
-* With selections, schematics, copy and paste, brushes, and scripting!
-* Use it in creative, survival in single player or on your server.
-* Use it on your Minecraft server to fix griefing and mistakes.
+This is a personal fork of WorldEdit (NeoForge) tuned for survival play. Edits are paid for out of an
+Applied Energistics 2 network and are applied gradually so large edits do not stall the server.
 
-Java Edition required. WorldEdit is compatible with Forge, Fabric, Bukkit, Spigot, Paper, and Sponge.
+The mod is published under the `worldedit` mod id so it keeps compatibility with WorldEditCUI. The
+mod drawer name stays **SurvivalEdit**.
 
-## Download WorldEdit
+### What is included here
+- Selection Axe item (`worldedit:axe`) with lang, model, and texture
+- Axe recipe under the `worldedit` namespace
+- Survival-edit chat feedback and item usage behavior
+- NeoForge entry point and CUI packet handling on the `worldedit:cui` channel
+- Persistent per-player edit history with paying undo, stored per world
+- Survival-only protection for blocks an edit must never overwrite, with `@modid` and `#tag` support
 
-This place contains the Java code for WorldEdit, but if you want to just use WorldEdit, get the mod or plugin from Modrinth:
+### How a survival edit works
+- An edit is buffered, costed, and paid for **before** a single block is written. Items come from the
+  ME network reached through a wireless terminal (inventory or Curios), then from the inventory.
+  If anything is missing the edit is cancelled and nothing is taken.
+- Paid edits are applied a chunk at a time in the background so the server does not stall.
+- A bought block is refunded the moment it leaves the world, not only on undo. Paste 100 planks,
+  then paste 10 stone over part of them: the 10 planks that got covered go straight back to storage
+  while the stone paste runs.
+- A refund happens exactly once. Each bought block is tracked by position and state, so a refund
+  cannot be repeated by covering a block, undoing the cover and undoing again. Blocks that never
+  came from storage (containers, world blocks, blocks you placed by hand, free edits) are voided, and
+  a block you mined or replaced yourself is not paid back.
+- `//undo` restores the blocks an edit replaced and refunds what is still standing where the edit
+  left it, so mining 4 of the 52 stone first refunds 48.
+- `//undo nearest` undoes the applied edit closest to you in the current world.
+- `//redo` re-applies an undone edit and charges for it again (the undo refunded it).
+- History is stored per player on disk, so undo and redo still work after a reconnect or a restart.
+- History and block claims are stored **per world**, under the save's folder name
+  (`survival-history/<world>/<uuid>/` and `survival-claims/<world>/`). Opening a different save
+  starts with an empty history, so an edit from one world can never be undone into another.
+- Blocks on the protected list cannot be overwritten by a survival edit. The whole edit is refused
+  before anything is paid for, and the message names the blocks that were in the way. Creative-mode
+  edits are not restricted.
 
-https://modrinth.com/plugin/worldedit/versions
+### Configuration
+All settings live in `config/worldedit/worldedit.properties`. The file is written from the defaults
+shipped with the mod, so it holds only the keys below (plus the two log keys) and keeps its comments;
+any value you change is written back as you set it.
 
-Edit the Code
----------
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `survival.blocks-per-tick` | `1024` | Blocks all edits together may write per tick. |
+| `survival.per-chunk-delay-ms` | `0` | Wait before writing into the next chunk. |
+| `survival.max-blocks-per-edit` | `250000` | Largest single edit, `0` for no limit. |
+| `survival.history-limit` | `250` | Edits kept per player, `0` for no limit. |
+| `survival.allow-schematics` | `false` | Allow `//schem` and clipboard save/load in survival. |
+| `survival.drop-if-network-is-full` | `true` | Drop returned items that fit nowhere, instead of discarding them. |
+| `survival.protected-blocks` | see below | Blocks a survival edit may not overwrite. |
 
-Want to add new features to WorldEdit or fix bugs yourself? You can get the game running, with WorldEdit, from the code here, without any additional outside steps, by doing the following *four* things:
+`survival.protected-blocks` takes a comma list in three forms: `minecraft:bedrock` for one block,
+`@ae2` for every block of a mod (`ae2:*` works too), and `#minecraft:logs` for a block tag. A
+leading `!` is an exception that always wins, so `@ae2,!ae2:controller` protects all of AE2 but
+leaves its controller editable. The
+shipped list covers what cannot be mined back (bedrock, portals, spawners, command blocks), the
+containers whose contents an edit never copies (chests, barrels, shulker boxes, ender chests), and
+the expensive multiblock cores of the pack (AE2, Mekanism, AllTheModium). Add `@mekanism` there to
+protect a whole mod at once.
 
-1. Download WorldEdit's source code and put it somewhere. We recommend you use something called Git if you already know how to use it, but [you can also just download a .zip file](https://github.com/EngineHub/WorldEdit/archive/master.zip). (If you plan on contributing the changes, you will need to figure out Git.)
-2. Install any version of Java greater than or equal to 21.
-   * Note that if you do _not_ install JDK 21 exactly, Gradle will download it for you on first run. However, it is still required to have some form of Java installed for Gradle to start at all.
-3. Open terminal / command prompt / bash and navigate to the directory where you put the source code.
-4. Run **one** of these following commands:
-   * Mac OS X / Linux: `./gradlew :worldedit-fabric:runClient`
-   * Windows - Command Prompt: `gradlew :worldedit-fabric:runClient`
-   * Windows - PowerShell: `.\gradlew :worldedit-fabric:runClient`
+AE2 and AE2WTLib are required dependencies: they are what an edit is paid from.
 
-🎉 That's it. 🎉 It takes a long time to actually transform WorldEdit into a mod. If it succeeds, **the Minecraft game will open and you can create a single player world with WorldEdit**.
+### Build and run
+- Requires Java 21
+- Run from the `worldedit-neoforge` module:
+  - Linux / macOS: `cd worldedit-neoforge && ../gradlew :worldedit-neoforge:runClient`
+  - Windows (Git Bash / cmd): `cd worldedit-neoforge && ..\gradlew :worldedit-neoforge:runClient`
 
-When you make changes to the code, you have to restart the game by re-running the command for your changes to take effect. If there are errors in your Java syntax, the command will fail.
+Existing mods to test with can be dropped into `worldedit-neoforge/run/mods/`.
 
-For additional information about compiling WorldEdit, see [COMPILING.md](COMPILING.md).
+### Status
+- Mod id: `worldedit`
+- Mod name: `SurvivalEdit`
+- Target platform: NeoForge on Minecraft `1.21.1`
+- Mod version: `1.0`
 
-### Using a Java IDE
+### Repo
+This repository is maintained as `M9MX/survivaledit` and is no longer synced with the upstream
+EngineHub WorldEdit repository.
 
-To edit WorldEdit in a Java IDE, follow these steps:
-
-1. Download and install [IntelliJ IDEA Community Edition](https://www.jetbrains.com/idea/download/).
-2. In the IDE, open the folder that you saved WorldEdit's code in. This creates a new project in IDEA.
-
-That's pretty much it.
-
-If you want to be able to run the game also, follow these instructions:
-
-1. Go to Run -> Edit Configurations.
-2. Add a Gradle task:
-   1. Choose `worldedit-fabric` for the project.
-   2. For the tasks, type in `runClient`
-3. Click OK
-4. Under the Run menu again, go to "Debug [your new task]".
-
-### Speeding up the Edit-Test-Edit-Test Cycle
-
-It's a little annoying have to restart the game to test your changes. The best way to reduce the time is to run the server instead (using `runServer` instead of `runClient`) and then reconnect to the server after restarting it.
-
-Submitting Your Changes
-------------
-
-WorldEdit is open source (specifically licensed under GPL v3), so note that your contributions will also be open source. The best way to submit a change is to create a fork on GitHub, put your changes there, and then create a "pull request" on our WorldEdit repository.
-
-Please read [CONTRIBUTING.md](CONTRIBUTING.md) for important guidelines to follow.
-
-Links
------
-
-* [Visit our website](https://enginehub.org/)
-* [Discord](https://discord.gg/enginehub)
-* [Issue tracker](https://github.com/EngineHub/WorldEdit/issues)
-* [Continuous integration](https://builds.enginehub.org) [![Build Status](https://ci.enginehub.org/app/rest/builds/buildType:bt10,branch:master/statusIcon.svg)](https://ci.enginehub.org/viewType.html?buildTypeId=bt10&guest=1)
-* [End-user documentation](https://worldedit.enginehub.org/en/latest/)
-
-Supporters
-----------
-
-[![YourKit Logo](https://www.yourkit.com/images/yklogo.png)](https://www.yourkit.com/)
-
-YourKit supports open source projects with innovative and intelligent tools for monitoring and profiling Java and .NET applications.
-YourKit is the creator of [YourKit Java Profiler](https://www.yourkit.com/java/profiler/),
-[YourKit .NET Profiler](https://www.yourkit.com/.net/profiler/),
-and [YourKit YouMonitor](https://www.yourkit.com/youmonitor/).
+### Links
+- [Discord](https://discord.gg/enginehub)
+- [Issue tracker](https://github.com/M9MX/survivaledit/issues)

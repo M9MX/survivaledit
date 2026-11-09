@@ -1,9 +1,9 @@
-/*
+/* 
  * WorldEdit, a Minecraft world manipulation toolkit
  * Copyright (C) sk89q <http://www.sk89q.com>
  * Copyright (C) WorldEdit team and contributors
  *
- * This program is free software: you can redistribute it and/or modify
+ * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
@@ -36,8 +36,9 @@ import com.sk89q.worldedit.internal.event.InteractionDebouncer;
 import com.sk89q.worldedit.internal.util.LogManagerCompat;
 import com.sk89q.worldedit.neoforge.item.SurvivalEditItems;
 import com.sk89q.worldedit.neoforge.net.handler.WECUIPacketHandler;
-import com.sk89q.worldedit.neoforge.survival.SurvivalEditQueue;
 import com.sk89q.worldedit.neoforge.survival.SurvivalEditListener;
+import com.sk89q.worldedit.neoforge.survival.SurvivalEditQueue;
+import com.sk89q.worldedit.neoforge.survival.SurvivalHistory;
 import com.sk89q.worldedit.util.Direction;
 import com.sk89q.worldedit.util.Location;
 import com.sk89q.worldedit.world.biome.BiomeCategory;
@@ -64,6 +65,7 @@ import net.minecraft.tags.TagKey;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.biome.Biome;
+import net.minecraft.world.level.storage.LevelResource;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -99,8 +101,14 @@ import static com.sk89q.worldedit.internal.anvil.ChunkDeleter.DELCHUNKS_FILE_NAM
 import static com.sk89q.worldedit.neoforge.NeoForgeAdapter.adaptCommandSource;
 import static com.sk89q.worldedit.neoforge.NeoForgeAdapter.adaptPlayer;
 
-/**
+/** 
  * The Forge implementation of WorldEdit.
+ *
+ * <p>All config lives in a single file: the worldedit.properties file in the worldedit config
+ * directory (for example run/config/worldedit/worldedit.properties). There is no separate
+ * .toml file and no in-game config screen used by this fork. The server-side config behavior is
+ * unchanged: NeoForgeConfiguration still reads the file at load time and all settings are honored
+ * once the server is ready.</p>
  */
 @Mod(NeoForgeWorldEdit.MOD_ID)
 public class NeoForgeWorldEdit {
@@ -277,6 +285,10 @@ public class NeoForgeWorldEdit {
 
     @SubscribeEvent
     public void serverStopping(ServerStoppingEvent event) {
+        // Store what the queued edits did and return the items for the blocks they never placed.
+        SurvivalEditQueue.clear();
+        SurvivalHistory.shutdown();
+
         WorldEdit worldEdit = WorldEdit.getInstance();
         worldEdit.getSessionManager().unload();
         WorldEdit.getInstance().getEventBus().post(new PlatformUnreadyEvent(platform));
@@ -287,6 +299,12 @@ public class NeoForgeWorldEdit {
         setupRegistries(event.getServer());
 
         config.load();
+
+        // Undo, redo and clearhistory are served from the on-disk history from here on. The files
+        // are kept inside the save's folder name, so they never carry over to another world.
+        SurvivalHistory.install(workingDir,
+            event.getServer().getWorldPath(LevelResource.ROOT).getFileName().toString());
+
         WorldEdit.getInstance().getEventBus().post(new PlatformReadyEvent(platform));
     }
 
@@ -408,14 +426,12 @@ public class NeoForgeWorldEdit {
         if (event.getEntity() instanceof ServerPlayer player) {
             debouncer.clearInteraction(adaptPlayer(player));
 
-    
-
             WorldEdit.getInstance().getEventBus()
                 .post(new SessionIdleEvent(new NeoForgePlayer.SessionKeyImpl(player)));
         }
     }
 
-    /**
+    /** 
      * Get the configuration.
      *
      * @return the Forge configuration
@@ -424,7 +440,7 @@ public class NeoForgeWorldEdit {
         return this.config;
     }
 
-    /**
+    /** 
      * Get the session for a player.
      *
      * @param player the player
@@ -435,7 +451,7 @@ public class NeoForgeWorldEdit {
         return WorldEdit.getInstance().getSessionManager().get(adaptPlayer(player));
     }
 
-    /**
+    /** 
      * Get the WorldEdit proxy for the given world.
      *
      * @param world the world
@@ -446,7 +462,7 @@ public class NeoForgeWorldEdit {
         return new NeoForgeWorld(world);
     }
 
-    /**
+    /** 
      * Get the WorldEdit proxy for the platform.
      *
      * @return the WorldEdit platform
@@ -455,7 +471,7 @@ public class NeoForgeWorldEdit {
         return this.platform;
     }
 
-    /**
+    /** 
      * Get the working directory where WorldEdit's files are stored.
      *
      * @return the working directory
@@ -464,7 +480,7 @@ public class NeoForgeWorldEdit {
         return this.workingDir;
     }
 
-    /**
+    /** 
      * Get the version of the WorldEdit-for-Forge implementation.
      *
      * @return a version string
