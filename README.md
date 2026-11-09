@@ -87,5 +87,4 @@ This repository is maintained as `M9MX/survivaledit` and is no longer synced wit
 EngineHub WorldEdit repository.
 
 ### Links
-- [Discord](https://discord.gg/enginehub)
 - [Issue tracker](https://github.com/M9MX/survivaledit/issues)
