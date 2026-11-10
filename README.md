@@ -1,5 +1,5 @@
 <h1>
-    <img src="worldedit-logo.svg" alt="SurvivalEdit" width="400" />
+    <img src="worldedit-neoforge/src/main/resources/worldedit-icon.png" alt="SurvivalEdit" width="160" />
 </h1>
 
 **Survival-friendly WorldEdit fork for NeoForge.**
@@ -80,7 +80,9 @@ Existing mods to test with can be dropped into `worldedit-neoforge/run/mods/`.
 - Mod id: `worldedit`
 - Mod name: `SurvivalEdit`
 - Target platform: NeoForge on Minecraft `1.21.1`
-- Mod version: `1.0`
+- Mod version: `1.0` (`survivaledit.version` in the manifest, `survivalEditVersion` in `gradle.properties`)
+- WorldEdit base version: `7.3.8` (kept for WorldEditCUI; the jar is named
+  `survivaledit-neoforge-1.0-mc1.21.1-7.3.8-dist.jar`)
 
 ### Repo
 This repository is maintained as `M9MX/survivaledit` and is no longer synced with the upstream

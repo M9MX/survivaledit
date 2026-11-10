@@ -7,6 +7,10 @@ plugins {
 }
 
 val minecraftVersion = libs.versions.neoforge.minecraft.get()
+
+// SurvivalEdit versions itself, independently of the WorldEdit version it is built on: the
+// worldedit mod version is pinned by WorldEditCUI, so this fork carries its own number.
+val survivalEditVersion: String = providers.gradleProperty("survivalEditVersion").get()
 val nextMajorMinecraftVersion: String = minecraftVersion.split('.').let { (useless, major) ->
     "$useless.${major.toInt() + 1}"
 }
@@ -98,15 +102,17 @@ tasks.withType<JavaCompile>().configureEach {
 }
 
 configure<BasePluginExtension> {
-    archivesName.set("${archivesName.get()}-mc$minecraftVersion")
+    archivesName.set("survivaledit-neoforge-$survivalEditVersion-mc$minecraftVersion")
 }
 
 tasks.named<Jar>("jar") {
     val version = rootProject.ext["internalVersion"]
     inputs.property("version", version)
+    inputs.property("survivalEditVersion", survivalEditVersion)
     manifest.attributes(
         "Implementation-Version" to version,
         "WorldEdit-Version" to version,
+        "SurvivalEdit-Version" to survivalEditVersion,
         "WorldEdit-Kind" to "Mod"
     )
 }
@@ -120,6 +126,7 @@ tasks.named<Copy>("processResources") {
     // These values are baked into the mod metadata, so redo the task when they change.
     val properties = mapOf(
         "version" to rootProject.ext["internalVersion"],
+        "survivalVersion" to survivalEditVersion,
         "neoVersion" to libs.neoforge.get().version,
         "minecraftVersion" to minecraftVersion,
         "nextMajorMinecraftVersion" to nextMajorMinecraftVersion

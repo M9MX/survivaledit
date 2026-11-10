@@ -5,15 +5,16 @@ license = "GPLv3"
 
 [[mods]]
 modId = "worldedit"
+# The worldedit version itself stays WorldEdit's: WorldEditCUI and other mods check it.
 version = "${version}"
-displayName = "SurvivalEdit"
+displayName = "SurvivalEdit ${survivalVersion}"
 displayURL = "https://enginehub.org/worldedit/"
 description = '''
 WorldEdit tuned for survival play: edits are paid for out of an Applied Energistics 2 network and are
 applied gradually so large edits do not stall the server.
 '''
 authors = "EngineHub, SurvivalEdit"
-logoFile = "assets/survivaledit/icon.png"
+logoFile = "worldedit-icon.png"
 displayTest = "IGNORE_SERVER_VERSION"
 
 [[mixins]]
@@ -32,7 +33,9 @@ side = "BOTH"
 [[dependencies.worldedit]]
 modId = "neoforge"
 type = "required"
-versionRange = "[${neoVersion},)"
+# Not ${neoVersion}: the dev build must not bake in the exact NeoForge it was compiled
+# against, or every pack older than that dev build refuses the mod.
+versionRange = "[21.1.0,)"
 ordering = "NONE"
 side = "BOTH"
 
