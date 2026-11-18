@@ -16,9 +16,7 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
 import net.minecraft.commands.CommandSourceStack;
-import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.network.chat.MutableComponent;
 import java.util.List;
 
 import static net.minecraft.commands.Commands.argument;
@@ -66,18 +64,19 @@ public final class PaymentCommands {
     private static int status(CommandContext<CommandSourceStack> context) {
         ServerPlayer player = context.getSource().getPlayer();
         if (player == null) {
-            context.getSource().sendFailure(Component.literal("This command must be run by a player."));
+            context.getSource().sendFailure(net.minecraft.network.chat.Component.literal(
+                "This command must be run by a player."));
             return 0;
         }
-        player.sendSystemMessage(Component.literal(
-            "Survival payment mode: " + PaymentProviders.status(player)));
+        SurvivalMessages.info(player, "Survival payment mode: " + PaymentProviders.status(player));
         return 1;
     }
 
     private static int changeMode(CommandContext<CommandSourceStack> context) {
         ServerPlayer player = context.getSource().getPlayer();
         if (player == null) {
-            context.getSource().sendFailure(Component.literal("This command must be run by a player."));
+            context.getSource().sendFailure(net.minecraft.network.chat.Component.literal(
+                "This command must be run by a player."));
             return 0;
         }
 
@@ -89,25 +88,22 @@ public final class PaymentCommands {
             return smokeTest(player, context);
         }
         if (!PaymentProviders.setPreference(mode)) {
-            context.getSource().sendFailure(Component.literal(
-                "Unknown payment provider '" + mode + "'. Available providers: "
-                    + providerIds()));
+            context.getSource().sendFailure(net.minecraft.network.chat.Component.literal(
+                "Unknown payment provider '" + mode + "'. Available providers: " + providerIds()));
             return 0;
         }
 
         PaymentProvider selected = PaymentProviders.provider(mode);
         if (selected == null) {
-            player.sendSystemMessage(Component.literal("Payment mode set to auto."));
+            SurvivalMessages.info(player, "Payment mode set to auto.");
             return 1;
         }
         if (!selected.available(player) && !"inventory".equals(mode)) {
-            context.getSource().sendFailure(Component.literal(
-                selected.displayName() + " is not available to this player."));
+            SurvivalMessages.error(player, selected.displayName() + " is not available to this player.");
             PaymentProviders.setPreference("auto");
             return 0;
         }
-        player.sendSystemMessage(Component.literal(
-            "Survival payment mode set to " + selected.displayName() + "."));
+        SurvivalMessages.info(player, "Survival payment mode set to " + selected.displayName() + ".");
         return 1;
     }
 
@@ -118,10 +114,11 @@ public final class PaymentCommands {
     private static int smokeTestNoItem(CommandContext<CommandSourceStack> context) {
         ServerPlayer player = context.getSource().getPlayer();
         if (player == null) {
-            context.getSource().sendFailure(Component.literal("This command must be run by a player."));
+            context.getSource().sendFailure(net.minecraft.network.chat.Component.literal(
+                "This command must be run by a player."));
             return 0;
         }
-        player.sendSystemMessage(Component.literal("Survival payment smoke test:"));
+        SurvivalMessages.info(player, "Survival payment smoke test:");
         for (PaymentProvider provider : PaymentProviders.providers()) {
             boolean available = provider.available(player);
             String detail = available ? "available" : "not available";
@@ -142,19 +139,16 @@ public final class PaymentCommands {
                     detail = "stock read failed: " + t.getClass().getSimpleName();
                 }
             }
-            MutableComponent line = Component.literal("- " + provider.displayName() + ": " + detail);
             if (count >= 0) {
-                line.append(", items=").append(NumberFormatting.hoverCount(count));
+                detail += ", items=" + NumberFormatting.compact(count)
+                    + " (" + count + ")";
             }
-            player.sendSystemMessage(line);
+            SurvivalMessages.info(player, "- " + provider.displayName() + ": " + detail);
         }
-        player.sendSystemMessage(Component.literal(
-            "- Mode: " + PaymentProviders.status(player)));
-        player.sendSystemMessage(Component.literal(
-            "- Block: " + (player.level().getBlockState(player.blockPosition()).getBlock()
-                .getName().getString())));
-        player.sendSystemMessage(Component.literal(
-            "- History and world ownership were not modified"));
+        SurvivalMessages.info(player, "- Mode: " + PaymentProviders.status(player));
+        SurvivalMessages.info(player, "- Block: "
+            + player.level().getBlockState(player.blockPosition()).getBlock().getName().getString());
+        SurvivalMessages.info(player, "- History and world ownership were not modified");
         return 1;
     }
 

@@ -149,6 +149,7 @@ public final class SurvivalHistory implements HistoryHook {
      * per-edit block limit is not stored, so a single enormous free edit cannot fill the disk.</p>
      */
     void record(ServerPlayer player, String dimension, boolean paid, Map<Item, Long> charged,
+                Map<Item, Map<String, Long>> chargedSources,
                 List<BlockVector3> positions, List<BaseBlock> previous, List<BaseBlock> next) {
         int count = positions.size();
         if (count == 0) {
@@ -167,7 +168,7 @@ public final class SurvivalHistory implements HistoryHook {
             long id = history.nextId++;
             Path file = history.dir.resolve(id + ".edit");
             SurvivalEditRecord record = SurvivalEditRecord.write(file, id, System.currentTimeMillis(),
-                dimension, paid, charged,
+                dimension, paid, charged, chargedSources,
                 positions.toArray(new BlockVector3[0]),
                 previous.toArray(new BaseBlock[0]),
                 next.toArray(new BaseBlock[0]));
@@ -365,7 +366,7 @@ public final class SurvivalHistory implements HistoryHook {
         persist(history);
 
         SurvivalEditQueue.enqueueReplay(player, level, SurvivalEditJob.Kind.UNDO, record,
-            diff.positions, diff.previous, reclaim);
+            diff.positions, diff.previous, reclaim, payment.sources());
 
         String when = TIME.format(Instant.ofEpochMilli(record.created).atZone(ZoneId.systemDefault()));
         actor.printInfo(TextComponent.of("Undoing the edit from " + when + " (" + record.blockCount
@@ -402,7 +403,7 @@ public final class SurvivalHistory implements HistoryHook {
         persist(history);
 
         SurvivalEditQueue.enqueueReplay(player, level, SurvivalEditJob.Kind.REDO, record,
-            diff.positions, diff.next, cost);
+            diff.positions, diff.next, cost, payment.sources());
 
         String when = TIME.format(Instant.ofEpochMilli(record.created).atZone(ZoneId.systemDefault()));
         actor.printInfo(TextComponent.of("Redoing the edit from " + when + " (" + record.blockCount + " blocks)."));

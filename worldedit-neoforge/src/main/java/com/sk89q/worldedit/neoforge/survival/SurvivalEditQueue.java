@@ -96,11 +96,12 @@ public final class SurvivalEditQueue {
      * Queues an edit that has already been paid for.
      */
     static void enqueue(ServerPlayer player, ServerLevel level, BlockMap<BaseBlock> blocks,
-                        SurvivalEditJob.Kind kind, Map<Item, Long> charged) {
+                        SurvivalEditJob.Kind kind, Map<Item, Long> charged,
+                        Map<Item, Map<String, Long>> chargedSources) {
         if (blocks.isEmpty()) {
             return;
         }
-        JOBS.addLast(SurvivalEditJob.edit(player, kind, level, blocks, charged));
+        JOBS.addLast(SurvivalEditJob.edit(player, kind, level, blocks, charged, chargedSources));
     }
 
     /**
@@ -108,11 +109,12 @@ public final class SurvivalEditQueue {
      */
     static void enqueueReplay(ServerPlayer player, ServerLevel level, SurvivalEditJob.Kind kind,
                               SurvivalEditRecord record, BlockVector3[] positions, BaseBlock[] targets,
-                              Map<Item, Long> charged) {
+                              Map<Item, Long> charged, Map<Item, Map<String, Long>> chargedSources) {
         if (positions.length == 0) {
             return;
         }
-        JOBS.addLast(SurvivalEditJob.replay(player, kind, level, record, positions, targets, charged));
+        JOBS.addLast(SurvivalEditJob.replay(player, kind, level, record, positions, targets,
+            charged, chargedSources));
     }
 
     /**

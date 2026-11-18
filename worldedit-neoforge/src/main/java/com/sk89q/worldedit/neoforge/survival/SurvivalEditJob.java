@@ -77,6 +77,8 @@ public final class SurvivalEditJob {
     final BaseBlock[] targets;
     final @Nullable BlockState[] targetStates;
     final Map<Item, Long> charged;
+    final Map<Item, Map<String, Long>> chargedSources;
+    private final Map<Item, Map<String, Long>> claimSourceBudget;
     /** Items that are still owed a claim, so no more blocks gain ownership than were paid for. */
     private final Map<Item, Long> claimBudget;
 
@@ -92,10 +94,13 @@ public final class SurvivalEditJob {
     final List<BaseBlock> previousStates = new ArrayList<>();
     final List<BaseBlock> nextStates = new ArrayList<>();
     final Map<Item, Long> refund = new LinkedHashMap<>();
+    final Map<Item, Map<String, Long>> refundSources = new LinkedHashMap<>();
 
     private SurvivalEditJob(ServerPlayer player, Kind kind, ServerLevel level,
                             BlockVector3[] positions, BaseBlock[] targets,
-                            Map<Item, Long> charged, @Nullable SurvivalEditRecord record) {
+                            Map<Item, Long> charged,
+                            Map<Item, Map<String, Long>> chargedSources,
+                            @Nullable SurvivalEditRecord record) {
         this.player = player;
         this.kind = kind;
         this.level = level;
@@ -103,6 +108,8 @@ public final class SurvivalEditJob {
         this.positions = positions;
         this.targets = targets;
         this.charged = charged;
+        this.chargedSources = chargedSources;
+        this.claimSourceBudget = copySources(chargedSources);
         this.record = record;
         this.targetStates = nativeStates(targets);
         this.claimBudget = new LinkedHashMap<>();
@@ -117,14 +124,16 @@ public final class SurvivalEditJob {
      * Creates a job for an edit that came from a command.
      */
     static SurvivalEditJob edit(ServerPlayer player, Kind kind, ServerLevel level,
-                                BlockMap<BaseBlock> blocks, Map<Item, Long> charged) {
+                                BlockMap<BaseBlock> blocks, Map<Item, Long> charged,
+                                Map<Item, Map<String, Long>> chargedSources) {
         BlockVector3[] positions = blocks.keySet().toArray(new BlockVector3[0]);
         sortByChunk(positions);
         BaseBlock[] targets = new BaseBlock[positions.length];
         for (int i = 0; i < positions.length; i++) {
             targets[i] = blocks.get(positions[i]);
         }
-        return new SurvivalEditJob(player, kind, level, positions, targets, charged, null);
+        return new SurvivalEditJob(player, kind, level, positions, targets, charged,
+            chargedSources, null);
     }
 
     /**
@@ -132,8 +141,10 @@ public final class SurvivalEditJob {
      */
     static SurvivalEditJob replay(ServerPlayer player, Kind kind, ServerLevel level,
                                   SurvivalEditRecord record, BlockVector3[] positions, BaseBlock[] targets,
-                                  Map<Item, Long> charged) {
-        return new SurvivalEditJob(player, kind, level, positions.clone(), targets.clone(), charged, record);
+                                  Map<Item, Long> charged,
+                                  Map<Item, Map<String, Long>> chargedSources) {
+        return new SurvivalEditJob(player, kind, level, positions.clone(), targets.clone(), charged,
+            chargedSources, record);
     }
 
     /**
@@ -214,6 +225,36 @@ public final class SurvivalEditJob {
         return item;
     }
 
+    @Nullable
+    String claimSourceFor(Item item) {
+        Map<String, Long> sources = claimSourceBudget.get(item);
+        if (sources == null) {
+            return null;
+        }
+        java.util.Iterator<Map.Entry<String, Long>> iterator = sources.entrySet().iterator();
+        while (iterator.hasNext()) {
+            Map.Entry<String, Long> entry = iterator.next();
+            long left = entry.getValue();
+            if (left > 0) {
+                entry.setValue(left - 1);
+                if (left == 1) {
+                    iterator.remove();
+                }
+                return entry.getKey();
+            }
+        }
+        return null;
+    }
+
+    private static Map<Item, Map<String, Long>> copySources(
+            Map<Item, Map<String, Long>> sources) {
+        Map<Item, Map<String, Long>> copy = new LinkedHashMap<>();
+        for (Map.Entry<Item, Map<String, Long>> entry : sources.entrySet()) {
+            copy.put(entry.getKey(), new LinkedHashMap<>(entry.getValue()));
+        }
+        return copy;
+    }
+
     /**
      * Pays a bought block back to whoever paid for it, because it has just left the world.
      *
@@ -223,6 +264,8 @@ public final class SurvivalEditJob {
     void refund(SurvivalClaims.Claim claim) {
         if (claim.owner.equals(player.getUUID())) {
             refund.merge(claim.item, 1L, Long::sum);
+            refundSources.computeIfAbsent(claim.item, ignored -> new LinkedHashMap<>())
+                .merge(claim.source, 1L, Long::sum);
             return;
         }
         ServerPlayer owner = player.getServer() == null
@@ -235,7 +278,7 @@ public final class SurvivalEditJob {
                 claim.owner);
             return;
         }
-        SurvivalStocks.store(owner, Map.of(claim.item, 1L));
+        SurvivalStocks.storeToSource(owner, claim.source, Map.of(claim.item, 1L));
     }
 
     /**
@@ -258,7 +301,7 @@ public final class SurvivalEditJob {
             }
 
             if (!refund.isEmpty()) {
-                SurvivalStocks.store(player, refund);
+                storeRefundSources(refund, refundSources);
                 SurvivalMessages.info(player, kind == Kind.UNDO
                     ? "Undo finished: returned " + ItemLedger.describe(refund) + "."
                     : "Returned " + ItemLedger.describe(refund) + " for blocks that were replaced.");
@@ -278,6 +321,7 @@ public final class SurvivalEditJob {
                 return;
             }
             history.record(player, dimension, kind == Kind.PAID, charged,
+                chargedSources,
                 changedPositions, previousStates, nextStates);
         } catch (Throwable t) {
             LOGGER.error("SurvivalEdit: could not finish an edit for {}", player.getName().getString(), t);
@@ -303,8 +347,59 @@ public final class SurvivalEditJob {
             }
         }
         if (!back.isEmpty()) {
-            SurvivalStocks.store(player, back);
+            Map<Item, Map<String, Long>> backSources = new LinkedHashMap<>();
+            for (Map.Entry<Item, Long> entry : back.entrySet()) {
+                long remaining = entry.getValue();
+                Map<String, Long> sources = chargedSources.get(entry.getKey());
+                if (sources != null) {
+                    for (Map.Entry<String, Long> source : sources.entrySet()) {
+                        if (remaining <= 0) {
+                            break;
+                        }
+                        long amount = Math.min(source.getValue(), remaining);
+                        if (amount > 0) {
+                            backSources.computeIfAbsent(entry.getKey(),
+                                ignored -> new LinkedHashMap<>())
+                                .put(source.getKey(), amount);
+                            remaining -= amount;
+                        }
+                    }
+                }
+                if (remaining > 0) {
+                    backSources.computeIfAbsent(entry.getKey(),
+                        ignored -> new LinkedHashMap<>())
+                        .merge("inventory", remaining, Long::sum);
+                }
+            }
+            storeRefundSources(back, backSources);
             SurvivalMessages.info(player, "Returned " + ItemLedger.describe(back) + " for blocks that were not placed.");
+        }
+    }
+
+    private void storeRefundSources(Map<Item, Long> amounts,
+                                    Map<Item, Map<String, Long>> sources) {
+        Map<Item, Long> bySource = new LinkedHashMap<>();
+        for (Map.Entry<Item, Map<String, Long>> entry : sources.entrySet()) {
+            Map<Item, Long> one = new LinkedHashMap<>();
+            one.put(entry.getKey(), amounts.getOrDefault(entry.getKey(), 0L));
+            long sent = 0;
+            for (Map.Entry<String, Long> source : entry.getValue().entrySet()) {
+                long amount = source.getValue();
+                if (amount <= 0) {
+                    continue;
+                }
+                Map<Item, Long> packageAmount = new LinkedHashMap<>();
+                packageAmount.put(entry.getKey(), amount);
+                SurvivalStocks.storeToSource(player, source.getKey(), packageAmount);
+                sent += amount;
+            }
+            long missing = amounts.getOrDefault(entry.getKey(), 0L) - sent;
+            if (missing > 0) {
+                bySource.merge(entry.getKey(), missing, Long::sum);
+            }
+        }
+        if (!bySource.isEmpty()) {
+            SurvivalStocks.store(player, bySource);
         }
     }
 }

@@ -16,6 +16,11 @@ final class ChestStock implements ResourceStock {
         this.containers = List.copyOf(containers);
     }
 
+    @Override
+    public String sourceId() {
+        return "chest";
+    }
+
     int containerCount() {
         return containers.size();
     }

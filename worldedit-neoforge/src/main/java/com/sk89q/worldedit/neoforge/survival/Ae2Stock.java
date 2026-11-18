@@ -50,6 +50,11 @@ final class Ae2Stock implements ResourceStock {
     }
 
     @Override
+    public String sourceId() {
+        return "ae2";
+    }
+
+    @Override
     public long itemCount() {
         try {
             long total = 0;

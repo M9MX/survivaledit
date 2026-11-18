@@ -164,13 +164,15 @@ final class SurvivalEditApplier {
 
         SurvivalClaims.Claim returning = claims.unspend(dimension, key, targetId);
         if (returning != null) {
-            claims.claim(dimension, key, targetId, job.player.getUUID(), returning.item);
+            claims.claim(dimension, key, targetId, job.player.getUUID(), returning.item, returning.source);
             return;
         }
 
         Item item = job.claimBudgetFor(job.targets[index]);
         if (item != null) {
-            claims.claim(dimension, key, targetId, job.player.getUUID(), item);
+            String source = job.claimSourceFor(item);
+            claims.claim(dimension, key, targetId, job.player.getUUID(), item,
+                source == null ? "inventory" : source);
         }
     }
 

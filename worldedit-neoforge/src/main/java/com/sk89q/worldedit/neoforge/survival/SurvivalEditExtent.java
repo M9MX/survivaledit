@@ -152,7 +152,7 @@ public class SurvivalEditExtent extends AbstractBufferingExtent {
                     if (kind == SurvivalEditJob.Kind.FREE) {
                         // Nothing is charged and WorldEdit reports the completion itself, so the
                         // edit only has to be applied a chunk at a time.
-                        SurvivalEditQueue.enqueue(player, level, pending, kind, Map.of());
+                        SurvivalEditQueue.enqueue(player, level, pending, kind, Map.of(), Map.of());
                         return null;
                     }
 
@@ -170,7 +170,7 @@ public class SurvivalEditExtent extends AbstractBufferingExtent {
                         return null;
                     }
 
-                    SurvivalEditQueue.enqueue(player, level, pending, kind, cost);
+                    SurvivalEditQueue.enqueue(player, level, pending, kind, cost, payment.sources());
                     SurvivalMessages.info(player, success(size, cost));
                     return null;
                 } finally {

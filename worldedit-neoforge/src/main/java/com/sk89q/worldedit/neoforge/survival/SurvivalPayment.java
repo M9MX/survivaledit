@@ -42,10 +42,15 @@ final class SurvivalPayment {
      * @param reason why the player could not pay, or {@code null} when they did
      * @param missing the items that were not covered, by item
      */
-    record Result(@Nullable String reason, Map<Item, Long> missing) {
+    record Result(@Nullable String reason, Map<Item, Long> missing,
+                  Map<Item, Map<String, Long>> sources) {
 
         static Result charged() {
-            return new Result(null, Map.of());
+            return new Result(null, Map.of(), Map.of());
+        }
+
+        static Result charged(Map<Item, Map<String, Long>> sources) {
+            return new Result(null, Map.of(), sources);
         }
 
         boolean paid() {
@@ -97,10 +102,11 @@ final class SurvivalPayment {
                 ? "the selected payment providers"
                 : "'" + mode + "'";
             return new Result("missing " + ItemLedger.describe(missing)
-                + " from " + source + ".", missing);
+                + " from " + source + ".", missing, Map.of());
         }
 
         List<ResourceStock> taken = new ArrayList<>();
+        Map<Item, Map<String, Long>> sources = new LinkedHashMap<>();
         for (Map.Entry<ResourceStock, Map<Item, Long>> allocation : allocations.entrySet()) {
             if (!allocation.getKey().take(allocation.getValue())) {
                 for (ResourceStock stock : taken) {
@@ -109,14 +115,18 @@ final class SurvivalPayment {
                         stock.give(returned);
                     }
                 }
-                return new Result("a payment provider could not hand over the items", Map.of());
+                return new Result("a payment provider could not hand over the items", Map.of(), Map.of());
+            }
+            for (Map.Entry<Item, Long> entry : allocation.getValue().entrySet()) {
+                sources.computeIfAbsent(entry.getKey(), ignored -> new LinkedHashMap<>())
+                    .merge(allocation.getKey().sourceId(), entry.getValue(), Long::sum);
             }
             taken.add(allocation.getKey());
         }
         if (taken.isEmpty() && !cost.isEmpty()) {
-            return new Result("you no longer have the items for this edit", Map.of());
+            return new Result("you no longer have the items for this edit", Map.of(), Map.of());
         }
 
-        return Result.charged();
+        return Result.charged(sources);
     }
 }

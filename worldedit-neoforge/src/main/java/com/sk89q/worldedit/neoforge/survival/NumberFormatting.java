@@ -1,9 +1,5 @@
 package com.sk89q.worldedit.neoforge.survival;
 
-import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.HoverEvent;
-import net.minecraft.network.chat.MutableComponent;
-
 import java.util.Locale;
 
 final class NumberFormatting {
@@ -24,13 +20,6 @@ final class NumberFormatting {
             return oneDecimal(value, 1_000_000_000L, "B");
         }
         return oneDecimal(value, 1_000_000_000_000L, "T");
-    }
-
-    static MutableComponent hoverCount(long value) {
-        return Component.literal(compact(value))
-            .withStyle(style -> style.withHoverEvent(new HoverEvent(
-                HoverEvent.Action.SHOW_TEXT,
-                Component.literal(Long.toString(value)))));
     }
 
     private static String oneDecimal(long value, long divisor, String suffix) {

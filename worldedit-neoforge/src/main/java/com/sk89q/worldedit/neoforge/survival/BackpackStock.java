@@ -18,6 +18,11 @@ final class BackpackStock implements ResourceStock {
     }
 
     @Override
+    public String sourceId() {
+        return "backpack";
+    }
+
+    @Override
     public long itemCount() {
         long total = 0;
         for (Object handler : handlers) {

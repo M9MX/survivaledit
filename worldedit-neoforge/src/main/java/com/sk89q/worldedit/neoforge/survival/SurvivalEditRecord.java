@@ -66,7 +66,7 @@ import java.util.zip.GZIPOutputStream;
 final class SurvivalEditRecord {
 
     private static final int MAGIC = 0x53454431; // "SED1"
-    private static final int FORMAT = 1;
+    private static final int FORMAT = 2;
 
     final long id;
     final long created;
@@ -78,6 +78,7 @@ final class SurvivalEditRecord {
     final double centerZ;
     /** What the edit was charged, by item. Empty for a free edit. */
     final Map<Item, Long> charged;
+    final Map<Item, Map<String, Long>> chargedSources;
     final Path file;
 
     private final long payloadOffset;
@@ -85,7 +86,9 @@ final class SurvivalEditRecord {
 
     private SurvivalEditRecord(long id, long created, String dimension, boolean paid, int blockCount,
                                double centerX, double centerY, double centerZ,
-                               Map<Item, Long> charged, Path file, long payloadOffset) {
+                               Map<Item, Long> charged,
+                               Map<Item, Map<String, Long>> chargedSources,
+                               Path file, long payloadOffset) {
         this.id = id;
         this.created = created;
         this.dimension = dimension;
@@ -95,6 +98,7 @@ final class SurvivalEditRecord {
         this.centerY = centerY;
         this.centerZ = centerZ;
         this.charged = charged;
+        this.chargedSources = chargedSources;
         this.file = file;
         this.payloadOffset = payloadOffset;
     }
@@ -110,7 +114,7 @@ final class SurvivalEditRecord {
                 throw new IOException("not a SurvivalEdit record: " + file);
             }
             int format = in.readInt();
-            if (format != FORMAT) {
+            if (format != FORMAT && format != 1) {
                 throw new IOException("unsupported SurvivalEdit record format " + format + ": " + file);
             }
             int metaLength = in.readInt();
@@ -131,8 +135,18 @@ final class SurvivalEditRecord {
                 double centerY = header.readDouble();
                 double centerZ = header.readDouble();
                 Map<Item, Long> charged = readLedger(header);
+                Map<Item, Map<String, Long>> chargedSources;
+                if (format >= 2) {
+                    chargedSources = readSourceLedger(header);
+                } else {
+                    chargedSources = new LinkedHashMap<>();
+                    for (Map.Entry<Item, Long> entry : charged.entrySet()) {
+                        chargedSources.put(entry.getKey(),
+                            new LinkedHashMap<>(Map.of("inventory", entry.getValue())));
+                    }
+                }
                 return new SurvivalEditRecord(id, created, dimension, paid, blockCount,
-                    centerX, centerY, centerZ, charged, file, payloadOffset);
+                    centerX, centerY, centerZ, charged, chargedSources, file, payloadOffset);
             }
         }
     }
@@ -145,6 +159,7 @@ final class SurvivalEditRecord {
      */
     static SurvivalEditRecord write(Path file, long id, long created, String dimension, boolean paid,
                                     Map<Item, Long> charged,
+                                    Map<Item, Map<String, Long>> chargedSources,
                                     BlockVector3[] positions, BaseBlock[] previous, BaseBlock[] next)
         throws IOException {
         int count = positions.length;
@@ -183,6 +198,7 @@ final class SurvivalEditRecord {
             meta.writeDouble(centerY);
             meta.writeDouble(centerZ);
             writeLedger(meta, charged);
+            writeSourceLedger(meta, chargedSources);
         }
         byte[] meta = metaBytes.toByteArray();
 
@@ -227,7 +243,7 @@ final class SurvivalEditRecord {
         }
 
         return new SurvivalEditRecord(id, created, dimension, paid, count, centerX, centerY, centerZ,
-            new LinkedHashMap<>(charged), file, payloadOffset);
+            new LinkedHashMap<>(charged), copySources(chargedSources), file, payloadOffset);
     }
 
     private static int paletteId(List<String> palette, Map<String, Integer> index, @Nullable BaseBlock block) {
@@ -280,6 +296,60 @@ final class SurvivalEditRecord {
             out.writeUTF(BuiltInRegistries.ITEM.getKey(entry.getKey()).toString());
             out.writeLong(entry.getValue());
         }
+    }
+
+    private static Map<Item, Map<String, Long>> readSourceLedger(DataInputStream in)
+            throws IOException {
+        int size = in.readUnsignedShort();
+        Map<Item, Map<String, Long>> result = new LinkedHashMap<>(size);
+        for (int i = 0; i < size; i++) {
+            Item item = item(in.readUTF());
+            int sourceCount = in.readUnsignedShort();
+            Map<String, Long> sources = new LinkedHashMap<>();
+            for (int sourceIndex = 0; sourceIndex < sourceCount; sourceIndex++) {
+                sources.put(in.readUTF(), in.readLong());
+            }
+            if (item != null) {
+                result.put(item, sources);
+            }
+        }
+        return result;
+    }
+
+    private static void writeSourceLedger(DataOutputStream out,
+                                          Map<Item, Map<String, Long>> sources)
+            throws IOException {
+        out.writeShort(Math.min(sources.size(), 0xFFFF));
+        int written = 0;
+        for (Map.Entry<Item, Map<String, Long>> entry : sources.entrySet()) {
+            if (written++ >= 0xFFFF) {
+                break;
+            }
+            out.writeUTF(BuiltInRegistries.ITEM.getKey(entry.getKey()).toString());
+            out.writeShort(Math.min(entry.getValue().size(), 0xFFFF));
+            int sourceWritten = 0;
+            for (Map.Entry<String, Long> source : entry.getValue().entrySet()) {
+                if (sourceWritten++ >= 0xFFFF) {
+                    break;
+                }
+                out.writeUTF(source.getKey());
+                out.writeLong(source.getValue());
+            }
+        }
+    }
+
+    private static Map<Item, Map<String, Long>> copySources(
+            Map<Item, Map<String, Long>> sources) {
+        Map<Item, Map<String, Long>> copy = new LinkedHashMap<>();
+        for (Map.Entry<Item, Map<String, Long>> entry : sources.entrySet()) {
+            copy.put(entry.getKey(), new LinkedHashMap<>(entry.getValue()));
+        }
+        return copy;
+    }
+
+    private static @Nullable Item item(String id) {
+        ResourceLocation location = ResourceLocation.tryParse(id);
+        return location == null ? null : BuiltInRegistries.ITEM.get(location);
     }
 
     /**
