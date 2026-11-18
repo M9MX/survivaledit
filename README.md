@@ -16,7 +16,8 @@ undone through persistent per-world history.
 - Resource payment through a selectable storage provider, with the AE2 network and player inventory
   built in.
 - `//payment` to show, test, or switch the active payment provider.
-- `//payment preview on` reports the next paid edit's cost and missing resources without applying or charging it.
+- Failed edits report only missing item types.
+- Large missing lists use `//payment missing [page]`, with 6 types per chat line.
 - `//payment test` reports provider availability and aggregate item totals only.
 - Optional Sophisticated Backpacks payment, including backpacks worn in inventory or Curios.
 - Nearby container payment within a 2-block radius, including chests, barrels, shulkers, and

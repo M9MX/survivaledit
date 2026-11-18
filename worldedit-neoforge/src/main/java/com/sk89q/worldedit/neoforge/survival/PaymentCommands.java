@@ -35,19 +35,21 @@ public final class PaymentCommands {
             .executes(PaymentCommands::status)
             .then(literal("test")
                 .executes(PaymentCommands::smokeTestNoItem))
+            .then(literal("missing")
+                .executes(context -> MissingItemReport.show(context, 1))
+                .then(argument("page", com.mojang.brigadier.arguments.IntegerArgumentType.integer(1))
+                    .executes(context -> MissingItemReport.show(context,
+                        com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(context, "page")))))
             .then(argument("mode", StringArgumentType.word())
                 .suggests(modeSuggestions())
                 .executes(PaymentCommands::changeMode))
-            .then(literal("preview")
-                .executes(context -> togglePreview(context, true))
-                .then(literal("on").executes(context -> togglePreview(context, true)))
-                .then(literal("off").executes(context -> togglePreview(context, false)))));
+        );
     }
 
     private static SuggestionProvider<CommandSourceStack> modeSuggestions() {
         return (context, builder) -> {
             String remaining = builder.getRemaining().toLowerCase();
-            List<String> modes = new java.util.ArrayList<>(List.of("status", "test", "preview", "auto"));
+            List<String> modes = new java.util.ArrayList<>(List.of("status", "test", "missing", "auto"));
             for (PaymentProvider provider : PaymentProviders.providers()) {
                 modes.add(provider.id());
             }
@@ -68,19 +70,6 @@ public final class PaymentCommands {
         }
         player.sendSystemMessage(Component.literal(
             "Survival payment mode: " + PaymentProviders.status(player)));
-        return 1;
-    }
-
-    private static int togglePreview(CommandContext<CommandSourceStack> context, boolean enabled) {
-        ServerPlayer player = context.getSource().getPlayer();
-        if (player == null) {
-            context.getSource().sendFailure(Component.literal("This command must be run by a player."));
-            return 0;
-        }
-        PaymentPreview.set(player, enabled);
-        player.sendSystemMessage(Component.literal(enabled
-            ? "Payment preview enabled for your next paid WorldEdit edit."
-            : "Payment preview disabled."));
         return 1;
     }
 

@@ -13,7 +13,6 @@
 - Block entities with inventory-like data are refused when a paid edit would overwrite them.
 - `/stop` finalizes queued edits instead of continuing to place blocks after shutdown begins.
 - Optional provider API mismatches are reported by `//payment test` and do not stop inventory payment.
-- Payment preview checks the next paid operation only and consumes the preview toggle after one edit.
 - Nearby-container payment includes every block entity implementing `Container`; verify modded
   machine and storage inventories before using `//payment chests` in that modpack.
 
