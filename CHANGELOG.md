@@ -12,6 +12,7 @@ This file records SurvivalEdit changes. The upstream WorldEdit history remains i
 - Added lazy NeoForge block-state ID registration to reduce startup allocations in large modpacks.
 - Added a payment-provider interface for AE2 and inventory storage.
 - Added `//payment status`, `//payment test`, and provider selection through `//payment <provider>`.
+- Added `//payment preview on/off` for read-only edit cost and missing-resource previews.
 - Made AE2 and AE2WTLib optional; player inventory remains available as a payment source.
 - Added optional Sophisticated Backpacks and Sophisticated Core integration.
 - Added nearby chest/container payment within a 2-block radius, including modded `Container`

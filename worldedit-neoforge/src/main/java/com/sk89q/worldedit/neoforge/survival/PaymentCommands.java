@@ -18,8 +18,6 @@ import com.mojang.brigadier.suggestion.SuggestionProvider;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.Items;
-
 import java.util.List;
 
 import static net.minecraft.commands.Commands.argument;
@@ -35,15 +33,21 @@ public final class PaymentCommands {
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(literal("//payment")
             .executes(PaymentCommands::status)
+            .then(literal("test")
+                .executes(PaymentCommands::smokeTestNoItem))
             .then(argument("mode", StringArgumentType.word())
                 .suggests(modeSuggestions())
-                .executes(PaymentCommands::changeMode)));
+                .executes(PaymentCommands::changeMode))
+            .then(literal("preview")
+                .executes(context -> togglePreview(context, true))
+                .then(literal("on").executes(context -> togglePreview(context, true)))
+                .then(literal("off").executes(context -> togglePreview(context, false)))));
     }
 
     private static SuggestionProvider<CommandSourceStack> modeSuggestions() {
         return (context, builder) -> {
             String remaining = builder.getRemaining().toLowerCase();
-            List<String> modes = new java.util.ArrayList<>(List.of("status", "test", "auto"));
+            List<String> modes = new java.util.ArrayList<>(List.of("status", "test", "preview", "auto"));
             for (PaymentProvider provider : PaymentProviders.providers()) {
                 modes.add(provider.id());
             }
@@ -64,6 +68,19 @@ public final class PaymentCommands {
         }
         player.sendSystemMessage(Component.literal(
             "Survival payment mode: " + PaymentProviders.status(player)));
+        return 1;
+    }
+
+    private static int togglePreview(CommandContext<CommandSourceStack> context, boolean enabled) {
+        ServerPlayer player = context.getSource().getPlayer();
+        if (player == null) {
+            context.getSource().sendFailure(Component.literal("This command must be run by a player."));
+            return 0;
+        }
+        PaymentPreview.set(player, enabled);
+        player.sendSystemMessage(Component.literal(enabled
+            ? "Payment preview enabled for your next paid WorldEdit edit."
+            : "Payment preview disabled."));
         return 1;
     }
 
@@ -105,6 +122,15 @@ public final class PaymentCommands {
     }
 
     private static int smokeTest(ServerPlayer player, CommandContext<CommandSourceStack> context) {
+        return smokeTestNoItem(context);
+    }
+
+    private static int smokeTestNoItem(CommandContext<CommandSourceStack> context) {
+        ServerPlayer player = context.getSource().getPlayer();
+        if (player == null) {
+            context.getSource().sendFailure(Component.literal("This command must be run by a player."));
+            return 0;
+        }
         player.sendSystemMessage(Component.literal("Survival payment smoke test:"));
         for (PaymentProvider provider : PaymentProviders.providers()) {
             boolean available = provider.available(player);
@@ -114,7 +140,7 @@ public final class PaymentCommands {
                     ResourceStock stock = provider.open(player);
                     if (stock != null) {
                         detail += ", stock read test passed";
-                        stock.available(Items.STONE);
+                        detail += ", items=" + stock.itemCount();
                         if (stock instanceof ChestStock chestStock) {
                             detail += ", containers=" + chestStock.containerCount();
                         }

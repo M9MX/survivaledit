@@ -21,6 +21,21 @@ final class ChestStock implements ResourceStock {
     }
 
     @Override
+    public long itemCount() {
+        long total = 0;
+        for (Container container : containers) {
+            for (int slot = 0; slot < container.getContainerSize(); slot++) {
+                ItemStack stack = container.getItem(slot);
+                if (!stack.isEmpty()) {
+                    total += stack.getCount();
+                }
+            }
+        }
+        return total;
+    }
+
+
+    @Override
     public long available(Item item) {
         long total = 0;
         for (Container container : containers) {

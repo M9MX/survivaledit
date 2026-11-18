@@ -16,6 +16,8 @@ undone through persistent per-world history.
 - Resource payment through a selectable storage provider, with the AE2 network and player inventory
   built in.
 - `//payment` to show, test, or switch the active payment provider.
+- `//payment preview on` reports the next paid edit's cost and missing resources without applying or charging it.
+- `//payment test` reports provider availability and aggregate item totals only.
 - Optional Sophisticated Backpacks payment, including backpacks worn in inventory or Curios.
 - Nearby container payment within a 2-block radius, including chests, barrels, shulkers, and
   modded block entities that implement Minecraft `Container`.
@@ -145,6 +147,18 @@ worldedit-neoforge/build/libs/
 ```
 
 Use the jar with the `-dist` classifier for installation.
+
+### Build a NeoForge version matrix
+
+Add Minecraft/NeoForge/Parchment combinations to `gradle/neoforge-versions.txt`, then run:
+
+```text
+scripts/build-neoforge-matrix.sh
+```
+
+Each isolated Gradle invocation produces a separate jar in `build/neoforge-matrix/`. Widening a
+dependency range is not used as a substitute for testing; publish a jar only after that exact
+Minecraft and NeoForge combination passes.
 
 ## Support and contributions
 

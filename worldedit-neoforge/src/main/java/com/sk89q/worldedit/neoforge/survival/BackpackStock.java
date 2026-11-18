@@ -18,6 +18,26 @@ final class BackpackStock implements ResourceStock {
     }
 
     @Override
+    public long itemCount() {
+        long total = 0;
+        for (Object handler : handlers) {
+            try {
+                Method getSlots = handler.getClass().getMethod("getSlots");
+                Method getStack = handler.getClass().getMethod("getStackInSlot", int.class);
+                int slots = (Integer) getSlots.invoke(handler);
+                for (int slot = 0; slot < slots; slot++) {
+                    ItemStack stack = (ItemStack) getStack.invoke(handler, slot);
+                    if (!stack.isEmpty()) {
+                        total += stack.getCount();
+                    }
+                }
+            } catch (Throwable ignored) {
+            }
+        }
+        return total;
+    }
+
+    @Override
     public long available(Item item) {
         long total = 0;
         for (Object handler : handlers) {

@@ -157,6 +157,22 @@ public class SurvivalEditExtent extends AbstractBufferingExtent {
                     }
 
                     Map<Item, Long> cost = ItemLedger.costOf(pending);
+                    if (PaymentPreview.enabled(player)) {
+                        Map<Item, Long> missing = PaymentPreview.missing(player, cost);
+                        SurvivalMessages.info(player, "Payment preview: "
+                            + size + " blocks, cost " + ItemLedger.describe(cost) + ".");
+                        if (missing.isEmpty()) {
+                            SurvivalMessages.info(player,
+                                "Everything is available from the configured payment providers.");
+                        } else {
+                            SurvivalMessages.error(player,
+                                "Missing " + ItemLedger.describe(missing)
+                                    + " from the configured payment providers.");
+                        }
+                        blockMap.clear();
+                        PaymentPreview.consume(player);
+                        return null;
+                    }
                     SurvivalPayment.Result payment = SurvivalPayment.charge(player, cost);
                     if (!payment.paid()) {
                         SurvivalMessages.error(player, "Edit cancelled: " + payment.reason() + ".");
