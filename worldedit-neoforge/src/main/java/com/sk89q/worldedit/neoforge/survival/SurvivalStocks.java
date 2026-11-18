@@ -65,29 +65,29 @@ public final class SurvivalStocks {
                     ItemLedger.describe(leftover), player.getName().getString());
             }
         }
+    }
 
-        /**
-         * Returns items to the provider that supplied them. If that provider is unavailable or no
-         * longer accepts the item, inventory is used as the fallback.
-         */
-        public static void storeToSource(ServerPlayer player, String source,
-                                         Map<Item, Long> amounts) {
-            Map<Item, Long> leftover = amounts;
-            if (!"inventory".equals(source)) {
-                PaymentProvider provider = PaymentProviders.provider(source);
-                if (provider != null && provider.available(player)) {
-                    ResourceStock stock = provider.open(player);
-                    if (stock != null) {
-                        leftover = stock.give(leftover);
-                    }
+    /**
+     * Returns items to the provider that supplied them. If that provider is unavailable or no
+     * longer accepts the item, inventory is used as the fallback.
+     */
+    public static void storeToSource(ServerPlayer player, String source,
+                                     Map<Item, Long> amounts) {
+        Map<Item, Long> leftover = amounts;
+        if (!"inventory".equals(source)) {
+            PaymentProvider provider = PaymentProviders.provider(source);
+            if (provider != null && provider.available(player)) {
+                ResourceStock stock = provider.open(player);
+                if (stock != null) {
+                    leftover = stock.give(leftover);
                 }
             }
-            if (!leftover.isEmpty()) {
-                leftover = new InventoryStock(player).give(leftover);
-            }
-            if (!leftover.isEmpty()) {
-                drop(player, leftover);
-            }
+        }
+        if (!leftover.isEmpty()) {
+            leftover = new InventoryStock(player).give(leftover);
+        }
+        if (!leftover.isEmpty()) {
+            drop(player, leftover);
         }
     }
 
