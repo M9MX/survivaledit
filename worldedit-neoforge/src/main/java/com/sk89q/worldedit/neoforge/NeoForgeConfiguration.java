@@ -19,6 +19,7 @@
 package com.sk89q.worldedit.neoforge;
 
 import com.sk89q.worldedit.neoforge.item.SurvivalEditItems;
+import com.sk89q.worldedit.neoforge.survival.PaymentProviders;
 import com.sk89q.worldedit.util.PropertiesConfiguration;
 
 import java.io.IOException;
@@ -51,6 +52,8 @@ public class NeoForgeConfiguration extends PropertiesConfiguration {
     public boolean survivalAllowSchematics = false;
     /** Whether items that do not fit anywhere are dropped on the ground instead of discarded. */
     public boolean survivalDropIfNetworkIsFull = true;
+    /** Default payment provider: auto, inventory, or a registered provider id. */
+    public String survivalPaymentProvider = "auto";
 
     /** Blocks a survival edit may not overwrite, by exact block id. */
     public final Set<String> survivalProtectedBlocks = new HashSet<>();
@@ -176,6 +179,11 @@ public class NeoForgeConfiguration extends PropertiesConfiguration {
         survivalHistoryLimit = Math.max(0, getInt("survival.history-limit", survivalHistoryLimit));
         survivalAllowSchematics = getBool("survival.allow-schematics", survivalAllowSchematics);
         survivalDropIfNetworkIsFull = getBool("survival.drop-if-network-is-full", survivalDropIfNetworkIsFull);
+        survivalPaymentProvider = getString("survival.payment-provider", survivalPaymentProvider).trim().toLowerCase(Locale.ROOT);
+        if (!PaymentProviders.setPreference(survivalPaymentProvider)) {
+            survivalPaymentProvider = "auto";
+            PaymentProviders.setPreference("auto");
+        }
         readProtectedBlocks(getStringSet("survival.protected-blocks", DEFAULT_PROTECTED_BLOCKS));
 
         for (String key : OBSOLETE_KEYS) {

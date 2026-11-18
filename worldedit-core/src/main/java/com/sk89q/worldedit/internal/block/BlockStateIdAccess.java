@@ -68,7 +68,7 @@ public final class BlockStateIdAccess {
         return blockStateInternalId.getInternalId(holder);
     }
 
-    public static @Nullable BlockState getBlockStateById(int id) {
+    public static synchronized @Nullable BlockState getBlockStateById(int id) {
         return TO_STATE.get(id);
     }
 
@@ -86,9 +86,9 @@ public final class BlockStateIdAccess {
 
     private static final BitSet usedIds = new BitSet();
 
-    public static void register(BlockState blockState, int id) {
+    public static synchronized void register(BlockState blockState, int id) {
         int i = isValidInternalId(id) ? id : provideUnusedWorldEditId();
-        BlockState existing = getBlockStateById(id);
+        BlockState existing = getBlockStateById(i);
         checkState(existing == null || existing == blockState,
             "BlockState %s is using the same block ID (%s) as BlockState %s",
             blockState, i, existing);
@@ -97,7 +97,7 @@ public final class BlockStateIdAccess {
         usedIds.set(i);
     }
 
-    public static void clear() {
+    public static synchronized void clear() {
         for (BlockState value : TO_STATE.values()) {
             blockStateInternalId.setInternalId(value, invalidId());
         }

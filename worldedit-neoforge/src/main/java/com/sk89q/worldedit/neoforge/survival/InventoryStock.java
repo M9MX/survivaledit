@@ -40,6 +40,25 @@ final class InventoryStock implements ResourceStock {
     }
 
     @Override
+    public String sourceId() {
+        return "inventory";
+    }
+
+    @Override
+    public long itemCount() {
+        long total = 0;
+        Inventory inventory = player.getInventory();
+        for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
+            ItemStack stack = inventory.getItem(slot);
+            if (!stack.isEmpty()) {
+                total += stack.getCount();
+            }
+        }
+        return total;
+    }
+
+
+    @Override
     public long available(Item item) {
         Inventory inventory = player.getInventory();
         long total = 0;

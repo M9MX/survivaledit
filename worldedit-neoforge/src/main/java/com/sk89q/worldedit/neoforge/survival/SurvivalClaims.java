@@ -66,7 +66,7 @@ final class SurvivalClaims {
     private static final Logger LOGGER = LogManager.getLogger();
 
     private static final int MAGIC = 0x53454331; // "SEC1"
-    private static final int FORMAT = 1;
+    private static final int FORMAT = 2;
 
     private static @Nullable SurvivalClaims instance;
 
@@ -93,11 +93,13 @@ final class SurvivalClaims {
 
         final UUID owner;
         final Item item;
+        final String source;
         final int state;
 
-        Claim(UUID owner, Item item, int state) {
+        Claim(UUID owner, Item item, String source, int state) {
             this.owner = owner;
             this.item = item;
+            this.source = source;
             this.state = state;
         }
     }
@@ -156,8 +158,8 @@ final class SurvivalClaims {
     /**
      * Records that the block now standing at this position was bought by the given player.
      */
-    void claim(String dimension, long position, int state, UUID owner, Item item) {
-        world(dimension).live.put(position, new Claim(owner, item, state));
+    void claim(String dimension, long position, int state, UUID owner, Item item, String source) {
+        world(dimension).live.put(position, new Claim(owner, item, source, state));
         touch(dimension);
     }
 
@@ -221,17 +223,17 @@ final class SurvivalClaims {
                 throw new IOException("not a SurvivalEdit claim file: " + file);
             }
             int format = in.readInt();
-            if (format != FORMAT) {
+            if (format != FORMAT && format != 1) {
                 throw new IOException("unsupported SurvivalEdit claim format " + format + ": " + file);
             }
-            readClaims(in, world.live);
-            readClaims(in, world.spent);
+            readClaims(in, world.live, format);
+            readClaims(in, world.spent, format);
         } catch (IOException e) {
             LOGGER.warn("SurvivalEdit: could not read block ownership in {}", file, e);
         }
     }
 
-    private static void readClaims(DataInputStream in, Map<Long, Claim> into) throws IOException {
+    private static void readClaims(DataInputStream in, Map<Long, Claim> into, int format) throws IOException {
         int count = in.readInt();
         for (int i = 0; i < count; i++) {
             long position = in.readLong();
@@ -241,7 +243,8 @@ final class SurvivalClaims {
             if (item == null) {
                 continue;
             }
-            into.put(position, new Claim(owner, item, state));
+            String source = format >= 2 ? in.readUTF() : "inventory";
+            into.put(position, new Claim(owner, item, source, state));
         }
     }
 
@@ -280,6 +283,7 @@ final class SurvivalClaims {
             out.writeLong(claim.owner.getMostSignificantBits());
             out.writeLong(claim.owner.getLeastSignificantBits());
             out.writeUTF(BuiltInRegistries.ITEM.getKey(claim.item).toString());
+            out.writeUTF(claim.source);
         }
     }
 

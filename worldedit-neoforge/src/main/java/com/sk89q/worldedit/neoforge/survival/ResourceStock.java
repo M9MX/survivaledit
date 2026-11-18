@@ -33,6 +33,16 @@ import java.util.Map;
  * mod-specific type, so the survival logic can be loaded without Applied Energistics 2 present.</p>
  */
 public interface ResourceStock {
+    /** Stable provider identifier used when refunds and history need to find the original source. */
+    default String sourceId() {
+        return "inventory";
+    }
+    /**
+     * Approximate or exact total item count without returning item details.
+     */
+    default long itemCount() {
+        return 0;
+    }
 
     /**
      * Gets how many of an item can be taken from this stock right now.

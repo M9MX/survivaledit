@@ -23,6 +23,8 @@ import appeng.api.config.Actionable;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Item;
@@ -45,6 +47,28 @@ final class Ae2Stock implements ResourceStock {
     Ae2Stock(ServerPlayer player, IGrid grid) {
         this.player = player;
         this.storage = grid.getStorageService().getInventory();
+    }
+
+    @Override
+    public String sourceId() {
+        return "ae2";
+    }
+
+    @Override
+    public long itemCount() {
+        try {
+            long total = 0;
+            KeyCounter counter = storage.getAvailableStacks();
+            for (var entry : counter) {
+                AEKey key = entry.getKey();
+                if (key instanceof AEItemKey) {
+                    total += entry.getLongValue();
+                }
+            }
+            return total;
+        } catch (Throwable ignored) {
+            return 0;
+        }
     }
 
     private static AEItemKey key(Item item) {

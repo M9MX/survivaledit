@@ -83,6 +83,16 @@ public class SurvivalEditExtent extends AbstractBufferingExtent {
             protectedBlocks.merge(existing.getBlockType().id(), 1, Integer::sum);
         }
 
+        if (kind == SurvivalEditJob.Kind.PAID && existing != null && blockMap.get(location) == null) {
+            ServerLevel level = level();
+            if (level != null
+                && SurvivalMode.blockEntityHasContents(level,
+                    NeoForgeAdapter.toBlockPos(location))) {
+                protectedBlocks.merge(existing.getBlockType().id()
+                    + " (block entity contents)", 1, Integer::sum);
+            }
+        }
+
         blockMap.put(location, newBlock);
         return true;
     }
@@ -142,18 +152,25 @@ public class SurvivalEditExtent extends AbstractBufferingExtent {
                     if (kind == SurvivalEditJob.Kind.FREE) {
                         // Nothing is charged and WorldEdit reports the completion itself, so the
                         // edit only has to be applied a chunk at a time.
-                        SurvivalEditQueue.enqueue(player, level, pending, kind, Map.of());
+                        SurvivalEditQueue.enqueue(player, level, pending, kind, Map.of(), Map.of());
                         return null;
                     }
 
                     Map<Item, Long> cost = ItemLedger.costOf(pending);
                     SurvivalPayment.Result payment = SurvivalPayment.charge(player, cost);
                     if (!payment.paid()) {
-                        SurvivalMessages.error(player, "Edit cancelled: " + payment.reason() + ".");
+                        MissingItemReport.report(player, payment.missing());
+                        if (payment.missing().isEmpty()) {
+                            SurvivalMessages.error(player, "Edit cancelled: " + payment.reason() + ".");
+                        } else {
+                            SurvivalMessages.error(player,
+                                "Edit cancelled: not enough items for " + payment.missing().size()
+                                    + " item type" + (payment.missing().size() == 1 ? "." : "s."));
+                        }
                         return null;
                     }
 
-                    SurvivalEditQueue.enqueue(player, level, pending, kind, cost);
+                    SurvivalEditQueue.enqueue(player, level, pending, kind, cost, payment.sources());
                     SurvivalMessages.info(player, success(size, cost));
                     return null;
                 } finally {

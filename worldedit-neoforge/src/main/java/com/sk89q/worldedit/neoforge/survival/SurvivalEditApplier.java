@@ -68,8 +68,8 @@ final class SurvivalEditApplier {
             int index = job.cursor;
             BlockVector3 position = job.positions[index];
             BlockPos pos = job.blockPos(index);
-            int chunkX = position.getX() >> 4;
-            int chunkZ = position.getZ() >> 4;
+            int chunkX = position.x() >> 4;
+            int chunkZ = position.z() >> 4;
 
             if (chunkX != job.chunkX || chunkZ != job.chunkZ) {
                 long now = System.currentTimeMillis();
@@ -164,13 +164,15 @@ final class SurvivalEditApplier {
 
         SurvivalClaims.Claim returning = claims.unspend(dimension, key, targetId);
         if (returning != null) {
-            claims.claim(dimension, key, targetId, job.player.getUUID(), returning.item);
+            claims.claim(dimension, key, targetId, job.player.getUUID(), returning.item, returning.source);
             return;
         }
 
         Item item = job.claimBudgetFor(job.targets[index]);
         if (item != null) {
-            claims.claim(dimension, key, targetId, job.player.getUUID(), item);
+            String source = job.claimSourceFor(item);
+            claims.claim(dimension, key, targetId, job.player.getUUID(), item,
+                source == null ? "inventory" : source);
         }
     }
 

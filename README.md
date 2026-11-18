@@ -1,92 +1,175 @@
-<h1>
-    <img src="worldedit-neoforge/src/main/resources/worldedit-icon.png" alt="SurvivalEdit" width="160" />
-</h1>
+# SurvivalEdit
 
-**Survival-friendly WorldEdit fork for NeoForge.**
+**A survival-focused WorldEdit fork for NeoForge.**
 
-This is a personal fork of WorldEdit (NeoForge) tuned for survival play. Edits are paid for out of an
-Applied Energistics 2 network and are applied gradually so large edits do not stall the server.
+SurvivalEdit brings WorldEdit-style building tools to survival modpacks. Edits use resources from
+an Applied Energistics 2 network or the player's inventory, are placed gradually, and can be
+undone through persistent per-world history.
 
-The mod is published under the `worldedit` mod id so it keeps compatibility with WorldEditCUI. The
-mod drawer name stays **SurvivalEdit**.
+> **Important:** SurvivalEdit uses the `worldedit` mod ID for WorldEditCUI compatibility. Do not
+> install it together with the official WorldEdit mod.
 
-### What is included here
-- Selection Axe item (`worldedit:axe`) with lang, model, and texture
-- Axe recipe under the `worldedit` namespace
-- Survival-edit chat feedback and item usage behavior
-- NeoForge entry point and CUI packet handling on the `worldedit:cui` channel
-- Persistent per-player edit history with paying undo, stored per world
-- Survival-only protection for blocks an edit must never overwrite, with `@modid` and `#tag` support
+## Features
 
-### How a survival edit works
-- An edit is buffered, costed, and paid for **before** a single block is written. Items come from the
-  ME network reached through a wireless terminal (inventory or Curios), then from the inventory.
-  If anything is missing the edit is cancelled and nothing is taken.
-- Paid edits are applied a chunk at a time in the background so the server does not stall.
-- A bought block is refunded the moment it leaves the world, not only on undo. Paste 100 planks,
-  then paste 10 stone over part of them: the 10 planks that got covered go straight back to storage
-  while the stone paste runs.
-- A refund happens exactly once. Each bought block is tracked by position and state, so a refund
-  cannot be repeated by covering a block, undoing the cover and undoing again. Blocks that never
-  came from storage (containers, world blocks, blocks you placed by hand, free edits) are voided, and
-  a block you mined or replaced yourself is not paid back.
-- `//undo` restores the blocks an edit replaced and refunds what is still standing where the edit
-  left it, so mining 4 of the 52 stone first refunds 48.
-- `//undo nearest` undoes the applied edit closest to you in the current world.
-- `//redo` re-applies an undone edit and charges for it again (the undo refunded it).
-- History is stored per player on disk, so undo and redo still work after a reconnect or a restart.
-- History and block claims are stored **per world**, under the save's folder name
-  (`survival-history/<world>/<uuid>/` and `survival-claims/<world>/`). Opening a different save
-  starts with an empty history, so an edit from one world can never be undone into another.
-- Blocks on the protected list cannot be overwritten by a survival edit. The whole edit is refused
-  before anything is paid for, and the message names the blocks that were in the way. Creative-mode
-  edits are not restricted.
+- WorldEdit selection and editing commands on NeoForge.
+- The `worldedit:axe` selection item, recipe, model, and texture.
+- Resource payment through a selectable storage provider, with the AE2 network and player inventory
+  built in.
+- `//payment` to show, test, or switch the active payment provider.
+- Failed edits report only missing item types.
+- Large missing lists use `//payment missing [page]`, with 6 types per chat line.
+- `//payment test` reports provider availability and aggregate item totals only.
+- Optional Sophisticated Backpacks payment, including backpacks worn in inventory or Curios.
+- Nearby container payment within a 2-block radius, including chests, barrels, shulkers, and
+  modded block entities that implement Minecraft `Container`.
+- Gradual, chunk-based application of paid edits.
+- Persistent per-player history stored on disk.
+- Paid undo and redo:
+  - `//undo` restores an edit and refunds resources that are still present.
+  - `//undo nearest` undoes the nearest applied edit in the current world.
+  - `//redo` applies an undone edit and charges for it again.
+- Protection for blocks that should not be overwritten in survival.
+- Protection rules by block, mod namespace, or block tag.
+- Optional survival schematic support.
+- WorldEditCUI compatibility through the `worldedit` channel.
 
-### Configuration
-All settings live in `config/worldedit/worldedit.properties`. The file is written from the defaults
-shipped with the mod, so it holds only the keys below (plus the two log keys) and keeps its comments;
-any value you change is written back as you set it.
+## Requirements
 
-| Key | Default | Meaning |
+| Requirement | Supported value |
+| --- | --- |
+| Minecraft | `1.21.1` |
+| Loader | NeoForge |
+| Java | 21 |
+| Required mods | None; player inventory is always available |
+| Optional storage mods | Applied Energistics 2 and AE2WTLib |
+
+SurvivalEdit is NeoForge-only. It is not a Bukkit, Paper, Fabric, or Sponge plugin.
+
+## Installation
+
+1. Install NeoForge for Minecraft `1.21.1`.
+2. Optionally install Applied Energistics 2 and AE2WTLib for ME-network payment.
+3. Download the `survivaledit-neoforge-...-dist.jar` release file.
+4. Put the jar in the server's `mods` directory.
+5. Start the server once, then configure `config/worldedit/worldedit.properties`.
+
+Do not install the official WorldEdit mod alongside SurvivalEdit.
+
+## How survival edits work
+
+Before a paid edit starts, SurvivalEdit checks its cost and protected blocks. If the edit cannot be
+paid for or would overwrite a protected block, it is refused before resources are taken.
+
+Paid blocks are tracked by position and state. When a purchased block is replaced, the resource is
+refunded once if it is still identifiable as a purchased block. Blocks that were not purchased
+through SurvivalEdit are not refunded.
+
+A paid edit is refused before payment if it would overwrite a block entity containing items or
+inventory-like data. Empty block entities are not covered by this contents check. `/stop` and
+server shutdown finalize queued jobs: applied changes are kept, history is stored, and unpaid
+remaining blocks are returned through the active payment providers.
+
+History and claim data are stored per world. A history from one save cannot be applied to another
+save.
+
+## WorldEdit differences
+
+| Area | WorldEdit | SurvivalEdit |
 | --- | --- | --- |
-| `survival.blocks-per-tick` | `1024` | Blocks all edits together may write per tick. |
-| `survival.per-chunk-delay-ms` | `0` | Wait before writing into the next chunk. |
-| `survival.max-blocks-per-edit` | `250000` | Largest single edit, `0` for no limit. |
-| `survival.history-limit` | `250` | Edits kept per player, `0` for no limit. |
-| `survival.allow-schematics` | `false` | Allow `//schem` and clipboard save/load in survival. |
-| `survival.drop-if-network-is-full` | `true` | Drop returned items that fit nowhere, instead of discarding them. |
-| `survival.protected-blocks` | see below | Blocks a survival edit may not overwrite. |
+| Platform | Multiple platform builds | NeoForge only |
+| Edit cost | Normally free | Paid from AE2 or inventory in survival |
+| Placement | Normal WorldEdit placement | Gradual chunk-based placement for paid edits |
+| History | Standard WorldEdit history | Persistent per-player, per-world history |
+| Undo | Standard WorldEdit behavior | Restores blocks and refunds eligible purchased blocks |
+| Redo | Standard WorldEdit behavior | Charges resources again |
+| Protection | WorldEdit/server permissions and configuration | Additional survival protected-block rules |
+| Schematics | Standard WorldEdit behavior | Survival schematic use is configurable and disabled by default |
+| Mod identity | `worldedit` | `worldedit`, intentionally retained for WorldEditCUI compatibility |
 
-`survival.protected-blocks` takes a comma list in three forms: `minecraft:bedrock` for one block,
-`@ae2` for every block of a mod (`ae2:*` works too), and `#minecraft:logs` for a block tag. A
-leading `!` is an exception that always wins, so `@ae2,!ae2:controller` protects all of AE2 but
-leaves its controller editable. The
-shipped list covers what cannot be mined back (bedrock, portals, spawners, command blocks), the
-containers whose contents an edit never copies (chests, barrels, shulker boxes, ender chests), and
-the expensive multiblock cores of the pack (AE2, Mekanism, AllTheModium). Add `@mekanism` there to
-protect a whole mod at once.
+SurvivalEdit is not a drop-in replacement for a WorldEdit plugin and is not compatible with an
+official WorldEdit installation in the same instance.
 
-AE2 and AE2WTLib are required dependencies: they are what an edit is paid from.
+## Configuration
 
-### Build and run
-- Requires Java 21
-- Run from the `worldedit-neoforge` module:
-  - Linux / macOS: `cd worldedit-neoforge && ../gradlew :worldedit-neoforge:runClient`
-  - Windows (Git Bash / cmd): `cd worldedit-neoforge && ..\gradlew :worldedit-neoforge:runClient`
+Configuration is stored in `config/worldedit/worldedit.properties`.
 
-Existing mods to test with can be dropped into `worldedit-neoforge/run/mods/`.
+| Key | Default | Description |
+| --- | ---: | --- |
+| `survival.blocks-per-tick` | `1024` | Maximum blocks all edits may write per tick. |
+| `survival.per-chunk-delay-ms` | `0` | Delay before writing to the next chunk. |
+| `survival.max-blocks-per-edit` | `250000` | Maximum size of one edit; `0` disables the limit. |
+| `survival.history-limit` | `250` | Number of edits kept per player; `0` disables the limit. |
+| `survival.allow-schematics` | `false` | Allow schematic and clipboard use in survival. |
+| `survival.drop-if-network-is-full` | `true` | Drop returned items when storage cannot accept them. |
+| `survival.payment-provider` | `auto` | Payment mode: `auto`, `inventory`, or a registered provider id. |
+| `survival.protected-blocks` | See below | Blocks survival edits may not overwrite. |
 
-### Status
-- Mod id: `worldedit`
-- Mod name: `SurvivalEdit`
-- Target platform: NeoForge on Minecraft `1.21.1`
-- Mod version: `1.0` (`survivaledit.version` in the manifest, `survivalEditVersion` in `gradle.properties`)
-- WorldEdit base version: `7.3.8` (kept for WorldEditCUI; the jar is named
-  `survivaledit-neoforge-1.0-mc1.21.1-7.3.8-dist.jar`)
+`survival.protected-blocks` accepts:
 
-### Repo
-This repository is maintained as `M9MX/survivaledit` and is no longer synced with the upstream
-EngineHub WorldEdit repository.
+- `minecraft:bedrock` — one block.
+- `@ae2` or `ae2:*` — all blocks from a mod namespace.
+- `#minecraft:logs` — every block in a tag.
+- Prefix any rule with `!` to make an exception, such as `@ae2,!ae2:controller`.
 
-### Links
-- [Issue tracker](https://github.com/M9MX/survivaledit/issues)
+The shipped protection list covers blocks that cannot safely be mined back, containers whose
+contents are not copied by an edit, and selected expensive multiblock components. Review it before
+using SurvivalEdit in a modpack.
+
+## Known limitations
+
+- NeoForge and Minecraft `1.21.1` are the supported platform and version.
+- The official WorldEdit mod cannot be installed at the same time.
+- AE2/AE2WTLib is optional; the player inventory remains an available payment provider.
+- Paid edits are intentionally gradual rather than instant.
+- Schematic support in survival is disabled by default.
+- Behavior involving modded block entities should be tested in the target modpack before enabling
+  broad editing permissions.
+
+## Project status
+
+SurvivalEdit is a focused fork rather than an upstream WorldEdit distribution. The project keeps
+WorldEdit's core functionality where it is useful and adds survival payment, history, protection,
+and NeoForge integration.
+
+The current WorldEdit base is `7.3.8`. SurvivalEdit has its own version and release notes.
+
+## Building
+
+Building requires Java 21. Use the Gradle wrapper:
+
+```text
+./gradlew :worldedit-neoforge:build
+```
+
+The distributable jar is produced in:
+
+```text
+worldedit-neoforge/build/libs/
+```
+
+Use the jar with the `-dist` classifier for installation.
+
+### Build a NeoForge version matrix
+
+Add Minecraft/NeoForge/Parchment combinations to `gradle/neoforge-versions.txt`, then run:
+
+```text
+scripts/build-neoforge-matrix.sh
+```
+
+Each isolated Gradle invocation produces a separate jar in `build/neoforge-matrix/`. Widening a
+dependency range is not used as a substitute for testing; publish a jar only after that exact
+Minecraft and NeoForge combination passes.
+
+## Support and contributions
+
+- Report bugs: [GitHub Issues](https://github.com/M9MX/survivaledit/issues)
+- Read the project-specific changes in [CHANGELOG.md](CHANGELOG.md).
+- `CHANGELOG.txt` is retained as the upstream WorldEdit history and is not the SurvivalEdit
+  release changelog.
+
+## License and attribution
+
+SurvivalEdit is derived from WorldEdit and remains subject to the applicable GNU General Public
+License terms. See [LICENSE.txt](LICENSE.txt) for the license text and retain the upstream
+copyright and attribution notices.

@@ -29,13 +29,21 @@ import com.sk89q.worldedit.neoforge.NeoForgeWorldEdit;
 import com.sk89q.worldedit.world.block.BlockType;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.TagKey;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.Container;
 import net.neoforged.fml.ModList;
 
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -82,13 +90,18 @@ public final class SurvivalMode {
         return NeoForgeWorldEdit.inst.getConfig();
     }
 
-    /**
-     * Whether both required mods are present. AE2WTLib is what provides the wireless terminals, so
-     * without it there is nothing to charge an edit against.
-     */
+    /** Whether at least one provider-backed survival system is available. */
     public static boolean requiredModsLoaded() {
+        return true;
+    }
+
+    public static boolean ae2Loaded() {
         ModList modList = ModList.get();
-        return modList != null && modList.isLoaded(AE2_MOD_ID) && modList.isLoaded(WIRELESS_TERMINALS_MOD_ID);
+        return modList != null && modList.isLoaded(AE2_MOD_ID);
+    }
+
+    public static boolean hasPaymentProvider(ServerPlayer player) {
+        return PaymentProviders.atLeastOneAvailable(player);
     }
 
     public static boolean isSurvivalPlayer(ServerPlayer player) {
@@ -106,7 +119,7 @@ public final class SurvivalMode {
      * Whether the player carries a wireless terminal linked to an ME network.
      */
     public static boolean hasTerminal(ServerPlayer player) {
-        if (!requiredModsLoaded()) {
+        if (!ae2Loaded()) {
             return false;
         }
         try {
@@ -136,7 +149,7 @@ public final class SurvivalMode {
      * SurvivalEdit always requires a wireless terminal; there is no setting for this.
      */
     public static boolean requireTerminal() {
-        return true;
+        return false;
     }
 
     // ------------------------------------------------------------------
@@ -178,6 +191,59 @@ public final class SurvivalMode {
         return config.survivalProtectedBlocks.contains(id)
             || config.survivalProtectedMods.contains(namespace)
             || matchesTag(type, config.survivalProtectedTags);
+    }
+
+    /**
+     * Whether a position contains a block entity whose inventory or item-like NBT has contents.
+     *
+     * <p>SurvivalEdit never copies block-entity contents. Refusing the edit before payment avoids
+     * silently destroying the contents of containers and similarly capable modded blocks.</p>
+     */
+    public static boolean blockEntityHasContents(ServerLevel level, BlockPos pos) {
+        BlockEntity blockEntity = level.getBlockEntity(pos);
+        if (blockEntity == null) {
+            return false;
+        }
+        if (blockEntity instanceof Container container && !container.isEmpty()) {
+            return true;
+        }
+        try {
+            CompoundTag tag = blockEntity.saveWithoutMetadata(level.registryAccess());
+            return compoundHasItemContents(tag);
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    private static boolean compoundHasItemContents(CompoundTag compound) {
+        for (String key : compound.getAllKeys()) {
+            Tag value = compound.get(key);
+            if (value instanceof ListTag list
+                && (key.toLowerCase(Locale.ROOT).contains("item")
+                    || key.toLowerCase(Locale.ROOT).contains("inventory"))) {
+                for (int i = 0; i < list.size(); i++) {
+                    Tag item = list.get(i);
+                    if (item instanceof CompoundTag itemTag && !itemTag.isEmpty()) {
+                        return true;
+                    }
+                }
+            } else if (value instanceof CompoundTag child && compoundHasItemContents(child)) {
+                return true;
+            } else if (value instanceof ListTag nestedList && listHasItemContents(nestedList)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean listHasItemContents(ListTag list) {
+        for (int i = 0; i < list.size(); i++) {
+            Tag value = list.get(i);
+            if (value instanceof CompoundTag compound && compoundHasItemContents(compound)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static boolean matchesTag(BlockType type, Set<String> tags) {

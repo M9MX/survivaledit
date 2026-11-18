@@ -187,7 +187,10 @@ public final class NeoForgeAdapter {
     public static net.minecraft.world.level.block.state.BlockState adapt(BlockState blockState) {
         int blockStateId = BlockStateIdAccess.getBlockStateId(blockState);
         if (!BlockStateIdAccess.isValidInternalId(blockStateId)) {
-            return NeoForgeTransmogrifier.transmogToMinecraft(blockState);
+            net.minecraft.world.level.block.state.BlockState nativeState =
+                NeoForgeTransmogrifier.transmogToMinecraft(blockState);
+            BlockStateIdAccess.register(blockState, Block.getId(nativeState));
+            return nativeState;
         }
         return Block.stateById(blockStateId);
     }
@@ -196,7 +199,8 @@ public final class NeoForgeAdapter {
         int blockStateId = Block.getId(blockState);
         BlockState worldEdit = BlockStateIdAccess.getBlockStateById(blockStateId);
         if (worldEdit == null) {
-            return NeoForgeTransmogrifier.transmogToWorldEdit(blockState);
+            worldEdit = NeoForgeTransmogrifier.transmogToWorldEdit(blockState);
+            BlockStateIdAccess.register(worldEdit, blockStateId);
         }
         return worldEdit;
     }

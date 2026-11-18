@@ -6,7 +6,18 @@ plugins {
     `java-library`
 }
 
-val minecraftVersion = libs.versions.neoforge.minecraft.get()
+val minecraftVersion = providers.gradleProperty("neoforgeMinecraft")
+    .orElse(libs.versions.neoforge.minecraft)
+    .get()
+val neoForgeVersion = providers.gradleProperty("neoforgeVersion")
+    .orElse(libs.versions.neoforge.asProvider())
+    .get()
+val parchmentMinecraftVersion = providers.gradleProperty("parchmentMinecraft")
+    .orElse(libs.versions.parchment.minecraft)
+    .get()
+val parchmentMappingsVersion = providers.gradleProperty("parchmentMappings")
+    .orElse(libs.versions.parchment.mappings)
+    .get()
 
 // SurvivalEdit versions itself, independently of the WorldEdit version it is built on: the
 // worldedit mod version is pinned by WorldEditCUI, so this fork carries its own number.
@@ -37,7 +48,7 @@ repositories {
 dependencies {
     "api"(project(":worldedit-core"))
 
-    "implementation"(libs.neoforge)
+    "implementation"("net.neoforged:neoforge:$neoForgeVersion")
 
     // Applied Energistics 2 is an optional runtime dependency. It is vendored so builds are
     // reproducible without reaching a third-party Maven repository, and it is never bundled.
@@ -59,7 +70,7 @@ minecraft {
 }
 
 runs {
-    create("client") {
+    named("client") {
         runType("client")
         systemProperty("forge.logging.markers", "SCAN,REGISTRIES,REGISTRYDUMP")
         systemProperty("forge.logging.console.level", "debug")
@@ -69,7 +80,7 @@ runs {
             runtime(apiClasspath)
         }
     }
-    create("server") {
+    named("server") {
         runType("server")
         systemProperty("forge.logging.markers", "SCAN,REGISTRIES,REGISTRYDUMP")
         systemProperty("forge.logging.console.level", "debug")
@@ -83,8 +94,8 @@ runs {
 
 subsystems {
     parchment {
-        minecraftVersion = libs.versions.parchment.minecraft.get()
-        mappingsVersion = libs.versions.parchment.mappings.get()
+        minecraftVersion = parchmentMinecraftVersion
+        mappingsVersion = parchmentMappingsVersion
         addRepository = false
     }
     decompiler {

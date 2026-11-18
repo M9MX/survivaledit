@@ -39,6 +39,8 @@ import com.sk89q.worldedit.neoforge.net.handler.WECUIPacketHandler;
 import com.sk89q.worldedit.neoforge.survival.SurvivalEditListener;
 import com.sk89q.worldedit.neoforge.survival.SurvivalEditQueue;
 import com.sk89q.worldedit.neoforge.survival.SurvivalHistory;
+import com.sk89q.worldedit.neoforge.survival.PaymentCommands;
+import com.sk89q.worldedit.neoforge.survival.CompatibilityGuard;
 import com.sk89q.worldedit.util.Direction;
 import com.sk89q.worldedit.util.Location;
 import com.sk89q.worldedit.world.biome.BiomeCategory;
@@ -254,6 +256,7 @@ public class NeoForgeWorldEdit {
     @SubscribeEvent
     public void registerCommands(RegisterCommandsEvent event) {
         WorldEdit.getInstance().getEventBus().post(new PlatformsRegisteredEvent());
+        PaymentCommands.register(event.getDispatcher());
 
         PlatformManager manager = WorldEdit.getInstance().getPlatformManager();
         Platform commandsPlatform = manager.queryCapability(Capability.USER_COMMANDS);
@@ -297,6 +300,7 @@ public class NeoForgeWorldEdit {
     @SubscribeEvent
     public void serverStarted(ServerStartedEvent event) {
         setupRegistries(event.getServer());
+        CompatibilityGuard.check();
 
         config.load();
 
