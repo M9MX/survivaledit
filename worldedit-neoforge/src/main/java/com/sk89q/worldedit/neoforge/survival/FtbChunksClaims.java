@@ -129,7 +129,11 @@ public final class FtbChunksClaims {
 
     /** Whether this one position is inside a claim the player may not build in. */
     public static boolean isBlocked(ServerPlayer player, BlockVector3 position) {
-        if (!enabled() || !SurvivalMode.appliesTo(player) || player.hasPermissions(2) || !load()) {
+        if (!enabled() || !load()) {
+            return false;
+        }
+        if (player.gameMode.getGameModeForPlayer() == net.minecraft.world.level.GameType.CREATIVE
+            && player.hasPermissions(2)) {
             return false;
         }
         try {
