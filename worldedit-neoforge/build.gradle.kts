@@ -70,7 +70,7 @@ minecraft {
 }
 
 runs {
-    create("client") {
+    named("client") {
         runType("client")
         systemProperty("forge.logging.markers", "SCAN,REGISTRIES,REGISTRYDUMP")
         systemProperty("forge.logging.console.level", "debug")
@@ -80,7 +80,7 @@ runs {
             runtime(apiClasspath)
         }
     }
-    create("server") {
+    named("server") {
         runType("server")
         systemProperty("forge.logging.markers", "SCAN,REGISTRIES,REGISTRYDUMP")
         systemProperty("forge.logging.console.level", "debug")
