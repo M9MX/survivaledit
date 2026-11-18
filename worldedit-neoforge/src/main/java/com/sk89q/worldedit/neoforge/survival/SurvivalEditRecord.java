@@ -178,10 +178,10 @@ final class SurvivalEditRecord {
         long minY = Long.MAX_VALUE;
         long maxY = Long.MIN_VALUE;
         for (BlockVector3 position : positions) {
-            centerX += position.getX();
-            centerZ += position.getZ();
-            minY = Math.min(minY, position.getY());
-            maxY = Math.max(maxY, position.getY());
+            centerX += position.x();
+            centerZ += position.z();
+            minY = Math.min(minY, position.y());
+            maxY = Math.max(maxY, position.y());
         }
         centerX = count == 0 ? 0 : centerX / count;
         centerZ = count == 0 ? 0 : centerZ / count;
@@ -214,12 +214,12 @@ final class SurvivalEditRecord {
             long lastZ = 0;
             for (int i = 0; i < count; i++) {
                 BlockVector3 position = positions[i];
-                writeSigned(out, position.getX() - lastX);
-                writeSigned(out, position.getY() - lastY);
-                writeSigned(out, position.getZ() - lastZ);
-                lastX = position.getX();
-                lastY = position.getY();
-                lastZ = position.getZ();
+                writeSigned(out, position.x() - lastX);
+                writeSigned(out, position.y() - lastY);
+                writeSigned(out, position.z() - lastZ);
+                lastX = position.x();
+                lastY = position.y();
+                lastZ = position.z();
                 writeSigned(out, previousIds[i]);
                 writeSigned(out, nextIds[i]);
             }
