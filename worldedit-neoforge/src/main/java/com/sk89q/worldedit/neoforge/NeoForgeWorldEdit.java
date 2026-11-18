@@ -39,6 +39,7 @@ import com.sk89q.worldedit.neoforge.net.handler.WECUIPacketHandler;
 import com.sk89q.worldedit.neoforge.survival.SurvivalEditListener;
 import com.sk89q.worldedit.neoforge.survival.SurvivalEditQueue;
 import com.sk89q.worldedit.neoforge.survival.SurvivalHistory;
+import com.sk89q.worldedit.neoforge.survival.FtbChunksClaims;
 import com.sk89q.worldedit.neoforge.survival.PaymentCommands;
 import com.sk89q.worldedit.neoforge.survival.CompatibilityGuard;
 import com.sk89q.worldedit.util.Direction;
@@ -303,6 +304,7 @@ public class NeoForgeWorldEdit {
         CompatibilityGuard.check();
 
         config.load();
+        FtbChunksClaims.installSelectionGuard();
 
         // Undo, redo and clearhistory are served from the on-disk history from here on. The files
         // are kept inside the save's folder name, so they never carry over to another world.

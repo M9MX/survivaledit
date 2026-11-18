@@ -24,6 +24,7 @@ import com.sk89q.worldedit.LocalSession;
 import com.sk89q.worldedit.entity.Player;
 import com.sk89q.worldedit.extension.platform.Actor;
 import com.sk89q.worldedit.extension.platform.Platform;
+import com.sk89q.worldedit.extension.platform.SelectionGuard;
 import com.sk89q.worldedit.extension.platform.permission.ActorSelectorLimits;
 import com.sk89q.worldedit.math.BlockVector3;
 import com.sk89q.worldedit.regions.RegionSelector;
@@ -38,6 +39,9 @@ public class SelectionWand implements DoubleActionBlockTool {
     public boolean actSecondary(Platform server, LocalConfiguration config, Player player, LocalSession session, Location clicked, @Nullable Direction face) {
         RegionSelector selector = session.getRegionSelector(player.getWorld());
         BlockVector3 blockPoint = clicked.toVector().toBlockPoint();
+        if (!SelectionGuard.allows(player, player.getWorld(), blockPoint)) {
+            return true;
+        }
 
         if (selector.selectPrimary(blockPoint, ActorSelectorLimits.forActor(player))) {
             selector.explainPrimarySelection(player, session, blockPoint);
@@ -49,6 +53,9 @@ public class SelectionWand implements DoubleActionBlockTool {
     public boolean actPrimary(Platform server, LocalConfiguration config, Player player, LocalSession session, Location clicked, @Nullable Direction face) {
         RegionSelector selector = session.getRegionSelector(player.getWorld());
         BlockVector3 blockPoint = clicked.toVector().toBlockPoint();
+        if (!SelectionGuard.allows(player, player.getWorld(), blockPoint)) {
+            return true;
+        }
 
         if (selector.selectSecondary(blockPoint, ActorSelectorLimits.forActor(player))) {
             selector.explainSecondarySelection(player, session, blockPoint);

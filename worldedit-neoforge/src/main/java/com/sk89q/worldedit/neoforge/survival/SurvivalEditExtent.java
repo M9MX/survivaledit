@@ -149,10 +149,21 @@ public class SurvivalEditExtent extends AbstractBufferingExtent {
                         return null;
                     }
 
+                    BlockVector3 blocked = FtbChunksClaims.firstBlocked(player, level,
+                        pending.keySet());
+                    if (blocked != null) {
+                        SurvivalMessages.error(player, "Edit cancelled: " + blocked.x() + ", "
+                            + blocked.y() + ", " + blocked.z()
+                            + " is inside an FTB Chunks claim you may not build in.");
+                        blockMap.clear();
+                        return null;
+                    }
+
                     if (kind == SurvivalEditJob.Kind.FREE) {
                         // Nothing is charged and WorldEdit reports the completion itself, so the
                         // edit only has to be applied a chunk at a time.
                         SurvivalEditQueue.enqueue(player, level, pending, kind, Map.of(), Map.of());
+                        SurvivalMessages.info(player, success(size, Map.of()));
                         return null;
                     }
 

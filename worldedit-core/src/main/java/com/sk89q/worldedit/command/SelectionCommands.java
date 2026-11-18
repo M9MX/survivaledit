@@ -37,6 +37,7 @@ import com.sk89q.worldedit.command.util.WorldEditAsyncCommandBuilder;
 import com.sk89q.worldedit.entity.Player;
 import com.sk89q.worldedit.extension.platform.Actor;
 import com.sk89q.worldedit.extension.platform.Locatable;
+import com.sk89q.worldedit.extension.platform.SelectionGuard;
 import com.sk89q.worldedit.extension.platform.permission.ActorSelectorLimits;
 import com.sk89q.worldedit.extent.clipboard.Clipboard;
 import com.sk89q.worldedit.function.block.BlockDistributionCounter;
@@ -151,9 +152,15 @@ public class SelectionCommands {
             regionSelector = newSelector;
         }
 
+        if (!SelectionGuard.allows(actor, world, pos1)) {
+            return;
+        }
         regionSelector.selectPrimary(pos1, ActorSelectorLimits.forActor(actor));
 
         for (BlockVector3 vector : pos2) {
+            if (!SelectionGuard.allows(actor, world, vector)) {
+                return;
+            }
             regionSelector.selectSecondary(vector, ActorSelectorLimits.forActor(actor));
         }
 
@@ -180,6 +187,9 @@ public class SelectionCommands {
                 return;
             }
         }
+        if (!SelectionGuard.allows(actor, world, coordinates)) {
+            return;
+        }
 
         if (!session.getRegionSelector(world).selectPrimary(coordinates, ActorSelectorLimits.forActor(actor))) {
             actor.printError(TranslatableComponent.of("worldedit.pos.already-set"));
@@ -204,6 +214,9 @@ public class SelectionCommands {
                 return;
             }
         }
+        if (!SelectionGuard.allows(actor, world, coordinates)) {
+            return;
+        }
 
         if (!session.getRegionSelector(world).selectSecondary(coordinates, ActorSelectorLimits.forActor(actor))) {
             actor.printError(TranslatableComponent.of("worldedit.pos.already-set"));
@@ -223,13 +236,17 @@ public class SelectionCommands {
         Location pos = player.getBlockTrace(300);
 
         if (pos != null) {
-            if (!session.getRegionSelector(player.getWorld()).selectPrimary(pos.toVector().toBlockPoint(), ActorSelectorLimits.forActor(player))) {
+            BlockVector3 coordinates = pos.toVector().toBlockPoint();
+            if (!SelectionGuard.allows(player, player.getWorld(), coordinates)) {
+                return;
+            }
+            if (!session.getRegionSelector(player.getWorld()).selectPrimary(coordinates, ActorSelectorLimits.forActor(player))) {
                 player.printError(TranslatableComponent.of("worldedit.hpos.already-set"));
                 return;
             }
 
             session.getRegionSelector(player.getWorld())
-                    .explainPrimarySelection(player, session, pos.toVector().toBlockPoint());
+                    .explainPrimarySelection(player, session, coordinates);
         } else {
             player.printError(TranslatableComponent.of("worldedit.hpos.no-block"));
         }
@@ -245,13 +262,17 @@ public class SelectionCommands {
         Location pos = player.getBlockTrace(300);
 
         if (pos != null) {
-            if (!session.getRegionSelector(player.getWorld()).selectSecondary(pos.toVector().toBlockPoint(), ActorSelectorLimits.forActor(player))) {
+            BlockVector3 coordinates = pos.toVector().toBlockPoint();
+            if (!SelectionGuard.allows(player, player.getWorld(), coordinates)) {
+                return;
+            }
+            if (!session.getRegionSelector(player.getWorld()).selectSecondary(coordinates, ActorSelectorLimits.forActor(player))) {
                 player.printError(TranslatableComponent.of("worldedit.hpos.already-set"));
                 return;
             }
 
             session.getRegionSelector(player.getWorld())
-                    .explainSecondarySelection(player, session, pos.toVector().toBlockPoint());
+                    .explainSecondarySelection(player, session, coordinates);
         } else {
             player.printError(TranslatableComponent.of("worldedit.hpos.no-block"));
         }
