@@ -44,6 +44,7 @@ public final class SurvivalStocks {
      */
     public static void store(ServerPlayer player, Map<Item, Long> amounts) {
         Map<Item, Long> leftover = amounts;
+        leftover = new InventoryStock(player).give(leftover);
         for (ResourceStock stock : PaymentProviders.stockOrder(player)) {
             if (leftover.isEmpty()) {
                 break;

@@ -18,6 +18,7 @@ import com.mojang.brigadier.suggestion.SuggestionProvider;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.network.chat.MutableComponent;
 import java.util.List;
 
 import static net.minecraft.commands.Commands.argument;
@@ -31,7 +32,7 @@ public final class PaymentCommands {
     }
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-        dispatcher.register(literal("//payment")
+        dispatcher.register(literal("/payment")
             .executes(PaymentCommands::status)
             .then(literal("test")
                 .executes(PaymentCommands::smokeTestNoItem))
@@ -124,12 +125,13 @@ public final class PaymentCommands {
         for (PaymentProvider provider : PaymentProviders.providers()) {
             boolean available = provider.available(player);
             String detail = available ? "available" : "not available";
+            long count = -1;
             if (available) {
                 try {
                     ResourceStock stock = provider.open(player);
                     if (stock != null) {
                         detail += ", stock read test passed";
-                        detail += ", items=" + stock.itemCount();
+                        count = stock.itemCount();
                         if (stock instanceof ChestStock chestStock) {
                             detail += ", containers=" + chestStock.containerCount();
                         }
@@ -140,8 +142,11 @@ public final class PaymentCommands {
                     detail = "stock read failed: " + t.getClass().getSimpleName();
                 }
             }
-            player.sendSystemMessage(Component.literal(
-                "- " + provider.displayName() + ": " + detail));
+            MutableComponent line = Component.literal("- " + provider.displayName() + ": " + detail);
+            if (count >= 0) {
+                line.append(", items=").append(NumberFormatting.hoverCount(count));
+            }
+            player.sendSystemMessage(line);
         }
         player.sendSystemMessage(Component.literal(
             "- Mode: " + PaymentProviders.status(player)));
