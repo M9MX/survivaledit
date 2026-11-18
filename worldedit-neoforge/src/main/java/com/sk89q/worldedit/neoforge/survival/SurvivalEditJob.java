@@ -181,15 +181,15 @@ public final class SurvivalEditJob {
 
     private static void sortByChunk(BlockVector3[] positions) {
         Arrays.sort(positions, Comparator
-            .comparingInt((BlockVector3 position) -> position.getX() >> 4)
-            .thenComparingInt(position -> position.getZ() >> 4)
-            .thenComparingInt(BlockVector3::getY)
-            .thenComparingInt(BlockVector3::getX));
+            .comparingInt((BlockVector3 position) -> position.x() >> 4)
+            .thenComparingInt(position -> position.z() >> 4)
+            .thenComparingInt(BlockVector3::y)
+            .thenComparingInt(BlockVector3::x));
     }
 
     BlockPos blockPos(int index) {
         BlockVector3 position = positions[index];
-        return new BlockPos(position.getX(), position.getY(), position.getZ());
+        return new BlockPos(position.x(), position.y(), position.x());
     }
 
     /**

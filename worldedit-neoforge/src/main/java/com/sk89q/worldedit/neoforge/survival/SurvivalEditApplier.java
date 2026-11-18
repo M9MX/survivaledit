@@ -68,8 +68,8 @@ final class SurvivalEditApplier {
             int index = job.cursor;
             BlockVector3 position = job.positions[index];
             BlockPos pos = job.blockPos(index);
-            int chunkX = position.getX() >> 4;
-            int chunkZ = position.getZ() >> 4;
+            int chunkX = position.x() >> 4;
+            int chunkZ = position.z() >> 4;
 
             if (chunkX != job.chunkX || chunkZ != job.chunkZ) {
                 long now = System.currentTimeMillis();

@@ -433,7 +433,7 @@ public final class SurvivalHistory implements HistoryHook {
                 continue;
             }
             BlockVector3 position = positions[i];
-            BlockPos pos = new BlockPos(position.getX(), position.getY(), position.getZ());
+            BlockPos pos = new BlockPos(position.x(), position.y(), position.z());
             if (level.getBlockState(pos).equals(target)) {
                 continue;
             }
@@ -453,7 +453,7 @@ public final class SurvivalHistory implements HistoryHook {
                 continue;
             }
             BlockVector3 position = diff.positions[i];
-            BlockPos pos = new BlockPos(position.getX(), position.getY(), position.getZ());
+            BlockPos pos = new BlockPos(position.x(), position.y(), position.z());
             net.minecraft.world.level.block.state.BlockState target = SurvivalEditJob.nativeState(next);
             if (target == null || level.getBlockState(pos).equals(target)) {
                 continue;
