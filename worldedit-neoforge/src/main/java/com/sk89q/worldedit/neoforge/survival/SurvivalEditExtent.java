@@ -83,6 +83,16 @@ public class SurvivalEditExtent extends AbstractBufferingExtent {
             protectedBlocks.merge(existing.getBlockType().id(), 1, Integer::sum);
         }
 
+        if (kind == SurvivalEditJob.Kind.PAID && existing != null && blockMap.get(location) == null) {
+            ServerLevel level = level();
+            if (level != null
+                && SurvivalMode.blockEntityHasContents(level,
+                    NeoForgeAdapter.toBlockPos(location))) {
+                protectedBlocks.merge(existing.getBlockType().id()
+                    + " (block entity contents)", 1, Integer::sum);
+            }
+        }
+
         blockMap.put(location, newBlock);
         return true;
     }

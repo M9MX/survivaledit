@@ -44,10 +44,11 @@ public final class SurvivalStocks {
      */
     public static void store(ServerPlayer player, Map<Item, Long> amounts) {
         Map<Item, Long> leftover = amounts;
-
-        ResourceStock network = openNetwork(player);
-        if (network != null) {
-            leftover = network.give(leftover);
+        for (ResourceStock stock : PaymentProviders.stockOrder(player)) {
+            if (leftover.isEmpty()) {
+                break;
+            }
+            leftover = stock.give(leftover);
         }
         if (!leftover.isEmpty()) {
             leftover = new InventoryStock(player).give(leftover);
@@ -69,15 +70,12 @@ public final class SurvivalStocks {
      * Opens the player's network, or {@code null} if they have no terminal linked to one.
      */
     public static @Nullable ResourceStock openNetwork(ServerPlayer player) {
-        if (!SurvivalMode.requiredModsLoaded()) {
-            return null;
+        for (ResourceStock stock : PaymentProviders.stockOrder(player)) {
+            if (!(stock instanceof InventoryStock)) {
+                return stock;
+            }
         }
-        try {
-            return Ae2Integration.openStock(player);
-        } catch (Throwable ignored) {
-            // AE2 failing to answer must never break an edit or an undo.
-            return null;
-        }
+        return null;
     }
 
     private static void drop(ServerPlayer player, Map<Item, Long> amounts) {

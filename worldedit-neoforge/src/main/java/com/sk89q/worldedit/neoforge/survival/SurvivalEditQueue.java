@@ -153,6 +153,7 @@ public final class SurvivalEditQueue {
     public static void clear() {
         List<SurvivalEditJob> jobs = new ArrayList<>(JOBS);
         JOBS.clear();
+        LOGGER.info("SurvivalEdit: finalizing {} queued edit(s) during shutdown", jobs.size());
         for (SurvivalEditJob job : jobs) {
             finish(job);
         }

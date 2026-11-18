@@ -13,7 +13,12 @@ undone through persistent per-world history.
 
 - WorldEdit selection and editing commands on NeoForge.
 - The `worldedit:axe` selection item, recipe, model, and texture.
-- Resource payment through an AE2 network reached by wireless terminal, then the player's inventory.
+- Resource payment through a selectable storage provider, with the AE2 network and player inventory
+  built in.
+- `//payment` to show, test, or switch the active payment provider.
+- Optional Sophisticated Backpacks payment, including backpacks worn in inventory or Curios.
+- Nearby container payment within a 2-block radius, including chests, barrels, shulkers, and
+  modded block entities that implement Minecraft `Container`.
 - Gradual, chunk-based application of paid edits.
 - Persistent per-player history stored on disk.
 - Paid undo and redo:
@@ -32,14 +37,15 @@ undone through persistent per-world history.
 | Minecraft | `1.21.1` |
 | Loader | NeoForge |
 | Java | 21 |
-| Required mods | Applied Energistics 2 and AE2WTLib |
+| Required mods | None; player inventory is always available |
+| Optional storage mods | Applied Energistics 2 and AE2WTLib |
 
 SurvivalEdit is NeoForge-only. It is not a Bukkit, Paper, Fabric, or Sponge plugin.
 
 ## Installation
 
 1. Install NeoForge for Minecraft `1.21.1`.
-2. Install Applied Energistics 2 and AE2WTLib.
+2. Optionally install Applied Energistics 2 and AE2WTLib for ME-network payment.
 3. Download the `survivaledit-neoforge-...-dist.jar` release file.
 4. Put the jar in the server's `mods` directory.
 5. Start the server once, then configure `config/worldedit/worldedit.properties`.
@@ -54,6 +60,11 @@ paid for or would overwrite a protected block, it is refused before resources ar
 Paid blocks are tracked by position and state. When a purchased block is replaced, the resource is
 refunded once if it is still identifiable as a purchased block. Blocks that were not purchased
 through SurvivalEdit are not refunded.
+
+A paid edit is refused before payment if it would overwrite a block entity containing items or
+inventory-like data. Empty block entities are not covered by this contents check. `/stop` and
+server shutdown finalize queued jobs: applied changes are kept, history is stored, and unpaid
+remaining blocks are returned through the active payment providers.
 
 History and claim data are stored per world. A history from one save cannot be applied to another
 save.
@@ -87,6 +98,7 @@ Configuration is stored in `config/worldedit/worldedit.properties`.
 | `survival.history-limit` | `250` | Number of edits kept per player; `0` disables the limit. |
 | `survival.allow-schematics` | `false` | Allow schematic and clipboard use in survival. |
 | `survival.drop-if-network-is-full` | `true` | Drop returned items when storage cannot accept them. |
+| `survival.payment-provider` | `auto` | Payment mode: `auto`, `inventory`, or a registered provider id. |
 | `survival.protected-blocks` | See below | Blocks survival edits may not overwrite. |
 
 `survival.protected-blocks` accepts:
@@ -104,7 +116,7 @@ using SurvivalEdit in a modpack.
 
 - NeoForge and Minecraft `1.21.1` are the supported platform and version.
 - The official WorldEdit mod cannot be installed at the same time.
-- Survival payment requires AE2/AE2WTLib integration.
+- AE2/AE2WTLib is optional; the player inventory remains an available payment provider.
 - Paid edits are intentionally gradual rather than instant.
 - Schematic support in survival is disabled by default.
 - Behavior involving modded block entities should be tested in the target modpack before enabling

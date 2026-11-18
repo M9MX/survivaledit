@@ -22,16 +22,17 @@ package com.sk89q.worldedit.neoforge.survival;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Item;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
- * Pays for an edit out of the player's ME network and inventory.
+ * Pays for an edit out of the available payment providers.
  *
- * <p>The whole cost is taken in one go, before a single block is written. Items come from the ME
- * network first and from the player's inventory second; if anything at all is missing the edit is
- * cancelled and nothing is taken and nothing is built.</p>
+ * <p>The whole cost is taken in one go, before a single block is written. Providers are checked in
+ * the configured order; if anything is missing, the edit is cancelled and nothing is taken.</p>
  */
 final class SurvivalPayment {
 
@@ -66,27 +67,24 @@ final class SurvivalPayment {
             return Result.charged();
         }
 
-        ResourceStock network = SurvivalStocks.openNetwork(player);
-        InventoryStock inventory = new InventoryStock(player);
-
-        Map<Item, Long> fromNetwork = new LinkedHashMap<>();
-        Map<Item, Long> fromInventory = new LinkedHashMap<>();
+        List<ResourceStock> stocks = PaymentProviders.stockOrder(player);
         Map<Item, Long> missing = new LinkedHashMap<>();
+        LinkedHashMap<ResourceStock, Map<Item, Long>> allocations =
+            new LinkedHashMap<>();
 
         for (Map.Entry<Item, Long> entry : cost.entrySet()) {
             long required = entry.getValue();
-
-            long fromMe = network == null ? 0 : Math.min(network.available(entry.getKey()), required);
-            if (fromMe > 0) {
-                fromNetwork.put(entry.getKey(), fromMe);
+            for (ResourceStock stock : stocks) {
+                if (required <= 0) {
+                    break;
+                }
+                long taken = Math.min(stock.available(entry.getKey()), required);
+                if (taken > 0) {
+                    allocations.computeIfAbsent(stock, ignored -> new LinkedHashMap<>())
+                        .put(entry.getKey(), taken);
+                    required -= taken;
+                }
             }
-            required -= fromMe;
-
-            long fromPlayer = Math.min(inventory.available(entry.getKey()), required);
-            if (fromPlayer > 0) {
-                fromInventory.put(entry.getKey(), fromPlayer);
-            }
-            required -= fromPlayer;
 
             if (required > 0) {
                 missing.put(entry.getKey(), required);
@@ -94,19 +92,28 @@ final class SurvivalPayment {
         }
 
         if (!missing.isEmpty()) {
-            String where = network == null
-                ? " (no wireless terminal linked to an ME network was found)"
-                : "";
-            return new Result("missing " + ItemLedger.describe(missing) + where, missing);
+            String mode = PaymentProviders.preference();
+            String source = mode.equals(PaymentProviders.MODE_AUTO)
+                ? "the selected payment providers"
+                : "'" + mode + "'";
+            return new Result("missing " + ItemLedger.describe(missing)
+                + " from " + source + ".", missing);
         }
 
-        if (!fromNetwork.isEmpty() && !network.take(fromNetwork)) {
-            return new Result("the ME network could not hand over the items", Map.of());
+        List<ResourceStock> taken = new ArrayList<>();
+        for (Map.Entry<ResourceStock, Map<Item, Long>> allocation : allocations.entrySet()) {
+            if (!allocation.getKey().take(allocation.getValue())) {
+                for (ResourceStock stock : taken) {
+                    Map<Item, Long> returned = allocations.get(stock);
+                    if (returned != null) {
+                        stock.give(returned);
+                    }
+                }
+                return new Result("a payment provider could not hand over the items", Map.of());
+            }
+            taken.add(allocation.getKey());
         }
-        if (!fromInventory.isEmpty() && !inventory.take(fromInventory)) {
-            // The player moved the items between the count and the take. Give the network part
-            // back rather than leaving them out of pocket.
-            SurvivalStocks.store(player, fromNetwork);
+        if (taken.isEmpty() && !cost.isEmpty()) {
             return new Result("you no longer have the items for this edit", Map.of());
         }
 

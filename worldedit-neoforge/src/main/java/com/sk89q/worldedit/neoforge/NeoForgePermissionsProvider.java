@@ -52,11 +52,7 @@ public interface NeoForgePermissionsProvider {
             // SurvivalEdit: survival players need a wireless terminal linked to the ME network to
             // pay for an edit. Other players (creative, ops, etc.) can edit normally.
             if (SurvivalMode.isSurvivalPlayer(player)) {
-                // Forced wireless terminal requirement.
-                if (!SurvivalMode.requireTerminal() || SurvivalMode.hasTerminal(player)) {
-                    return true;
-                }
-                return false;
+                return SurvivalMode.hasPaymentProvider(player);
             }
 
             return ServerLifecycleHooks.getCurrentServer().getPlayerList().isOp(player.getGameProfile())

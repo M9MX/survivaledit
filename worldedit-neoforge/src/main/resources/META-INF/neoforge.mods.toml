@@ -35,26 +35,40 @@ modId = "neoforge"
 type = "required"
 # Not ${neoVersion}: the dev build must not bake in the exact NeoForge it was compiled
 # against, or every pack older than that dev build refuses the mod.
-versionRange = "[21.1.0,)"
+versionRange = "[21.1.0,21.2)"
 ordering = "NONE"
 side = "BOTH"
 
 [[dependencies.worldedit]]
 modId = "ae2"
-type = "required"
+type = "optional"
 versionRange = "[19.2.0,)"
 ordering = "AFTER"
 side = "BOTH"
 
 [[dependencies.worldedit]]
 modId = "ae2wtlib"
-type = "required"
+type = "optional"
 versionRange = "*"
 ordering = "AFTER"
 side = "BOTH"
 
 [[dependencies.worldedit]]
 modId = "curios"
+type = "optional"
+versionRange = "*"
+ordering = "AFTER"
+side = "BOTH"
+
+[[dependencies.worldedit]]
+modId = "sophisticatedbackpacks"
+type = "optional"
+versionRange = "*"
+ordering = "AFTER"
+side = "BOTH"
+
+[[dependencies.worldedit]]
+modId = "sophisticatedcore"
 type = "optional"
 versionRange = "*"
 ordering = "AFTER"
