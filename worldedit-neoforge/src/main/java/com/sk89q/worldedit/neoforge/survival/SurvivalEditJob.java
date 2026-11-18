@@ -200,7 +200,7 @@ public final class SurvivalEditJob {
 
     BlockPos blockPos(int index) {
         BlockVector3 position = positions[index];
-        return new BlockPos(position.x(), position.y(), position.x());
+        return new BlockPos(position.x(), position.y(), position.z());
     }
 
     /**
