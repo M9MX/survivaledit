@@ -1,0 +1,22 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "group": "worldedit_stick",
+  "pattern": [
+    "S",
+    "I",
+    "S"
+  ],
+  "key": {
+    "S": {
+      "item": "minecraft:stick"
+    },
+    "I": {
+      "item": "allthemodium:unobtainium_ingot"
+    }
+  },
+  "result": {
+    "id": "worldedit:stick_main",
+    "count": 1
+  }
+}

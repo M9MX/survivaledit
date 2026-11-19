@@ -34,6 +34,7 @@ import com.sk89q.worldedit.extension.platform.PlatformManager;
 import com.sk89q.worldedit.internal.anvil.ChunkDeleter;
 import com.sk89q.worldedit.internal.event.InteractionDebouncer;
 import com.sk89q.worldedit.internal.util.LogManagerCompat;
+import com.sk89q.worldedit.neoforge.item.BrushSticks;
 import com.sk89q.worldedit.neoforge.item.SurvivalEditItems;
 import com.sk89q.worldedit.neoforge.net.handler.WECUIPacketHandler;
 import com.sk89q.worldedit.neoforge.survival.SurvivalEditListener;
@@ -138,7 +139,7 @@ public class NeoForgeWorldEdit {
         modBus.register(WECUIPacketHandler.class);
 
         SurvivalEditItems.ITEMS.register(modBus);
-        modBus.addListener(SurvivalEditItems::addCreativeTabContents);
+        SurvivalEditItems.TABS.register(modBus);
 
         NeoForge.EVENT_BUS.register(ThreadSafeCache.getInstance());
         NeoForge.EVENT_BUS.register(this);
@@ -252,6 +253,7 @@ public class NeoForgeWorldEdit {
     @SubscribeEvent
     public void onServerTick(ServerTickEvent.Post event) {
         SurvivalEditQueue.tick(event.getServer());
+        BrushSticks.tick(event.getServer());
     }
 
     @SubscribeEvent
@@ -425,6 +427,12 @@ public class NeoForgeWorldEdit {
             adaptCommandSource(parseResults.getContext().getSource()),
             "/" + parseResults.getReader().getString()
         ));
+
+        // Binding a brush no longer carries its own item, so the stick's lore is rewritten once
+        // the command has changed the session.
+        if (parseResults.getContext().getSource().getEntity() instanceof ServerPlayer player) {
+            BrushSticks.refresh(player);
+        }
     }
 
     @SubscribeEvent

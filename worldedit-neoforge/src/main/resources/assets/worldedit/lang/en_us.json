@@ -1,1 +1,21 @@
-{"item.worldedit.axe": "Selection Axe"}
+{
+  "itemGroup.worldedit.survivaledit": "SurvivalEdit",
+  "item.worldedit.axe": "Selection Axe",
+  "item.worldedit.stick_main": "WorldEdit Stick",
+  "item.worldedit.stick_white": "White WorldEdit Stick",
+  "item.worldedit.stick_orange": "Orange WorldEdit Stick",
+  "item.worldedit.stick_magenta": "Magenta WorldEdit Stick",
+  "item.worldedit.stick_light_blue": "Light Blue WorldEdit Stick",
+  "item.worldedit.stick_yellow": "Yellow WorldEdit Stick",
+  "item.worldedit.stick_lime": "Lime WorldEdit Stick",
+  "item.worldedit.stick_pink": "Pink WorldEdit Stick",
+  "item.worldedit.stick_gray": "Gray WorldEdit Stick",
+  "item.worldedit.stick_light_gray": "Light Gray WorldEdit Stick",
+  "item.worldedit.stick_cyan": "Cyan WorldEdit Stick",
+  "item.worldedit.stick_purple": "Purple WorldEdit Stick",
+  "item.worldedit.stick_blue": "Blue WorldEdit Stick",
+  "item.worldedit.stick_brown": "Brown WorldEdit Stick",
+  "item.worldedit.stick_green": "Green WorldEdit Stick",
+  "item.worldedit.stick_red": "Red WorldEdit Stick",
+  "item.worldedit.stick_black": "Black WorldEdit Stick"
+}
