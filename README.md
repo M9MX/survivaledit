@@ -13,6 +13,10 @@ undone through persistent per-world history.
 
 - WorldEdit selection and editing commands on NeoForge.
 - The `worldedit:axe` selection item, recipe, model, and texture.
+- The `worldedit:stick_main` brush stick and 16 dye-coloured sticks, one brush slot per colour.
+- Brush sticks show the bound brush, size, range, material, mask, and trace mask in their lore.
+- A SurvivalEdit creative tab holding the axe and every stick.
+- Configurable hold-to-use delay for held tools.
 - Resource payment through a selectable storage provider, with the AE2 network and player inventory
   built in.
 - `//payment` to show, test, or switch the active payment provider.
@@ -72,6 +76,20 @@ remaining blocks are returned through the active payment providers.
 History and claim data are stored per world. A history from one save cannot be applied to another
 save.
 
+## Tools
+
+The Selection Axe marks the corners of an edit region. Brushes are bound to the item in your hand
+with `//brush` and its option commands, and stay on that item until unbound.
+
+Seventeen sticks give each dye colour its own brush slot:
+
+- `worldedit:stick_main` — crafted from a vertical column of stick / unobtainium ingot / stick.
+- `worldedit:stick_<colour>` — any SurvivalEdit stick plus the matching dye.
+- A stick's lore shows the brush, size, range, material, mask, and trace mask bound to it.
+
+Every SurvivalEdit item is in the SurvivalEdit creative tab. The repeat rate while holding a tool
+is set by `survival.tool-use-delay-ticks`.
+
 ## WorldEdit differences
 
 | Area | WorldEdit | SurvivalEdit |
@@ -102,6 +120,7 @@ Configuration is stored in `config/worldedit/worldedit.properties`.
 | `survival.allow-schematics` | `false` | Allow schematic and clipboard use in survival. |
 | `survival.drop-if-network-is-full` | `true` | Drop returned items when storage cannot accept them. |
 | `survival.payment-provider` | `auto` | Payment mode: `auto`, `inventory`, or a registered provider id. |
+| `survival.tool-use-delay-ticks` | `4` | Repeat delay while holding a tool; `0` repeats every tick. |
 | `survival.protected-blocks` | See below | Blocks survival edits may not overwrite. |
 
 `survival.protected-blocks` accepts:
@@ -122,6 +141,7 @@ using SurvivalEdit in a modpack.
 - AE2/AE2WTLib is optional; the player inventory remains an available payment provider.
 - Paid edits are intentionally gradual rather than instant.
 - Schematic support in survival is disabled by default.
+- Brush bindings are held in the player's session and are lost when the player logs out.
 - Behavior involving modded block entities should be tested in the target modpack before enabling
   broad editing permissions.
 
@@ -164,12 +184,17 @@ Minecraft and NeoForge combination passes.
 ## Support and contributions
 
 - Report bugs: [GitHub Issues](https://github.com/M9MX/survivaledit/issues)
-- Read the project-specific changes in [CHANGELOG.md](CHANGELOG.md).
+- Read the project-specific changes in
+  [CHANGELOG.md](https://github.com/M9MX/survivaledit/blob/main/CHANGELOG.md).
 - `CHANGELOG.txt` is retained as the upstream WorldEdit history and is not the SurvivalEdit
   release changelog.
 
 ## License and attribution
 
-SurvivalEdit is derived from WorldEdit and remains subject to the applicable GNU General Public
-License terms. See [LICENSE.txt](LICENSE.txt) for the license text and retain the upstream
+SurvivalEdit's own code and assets are licensed under
+[CC BY-ND 4.0](https://github.com/M9MX/survivaledit/blob/main/LICENSE). Use it and ship it in
+modpacks, keep the credit, and do not share modified copies.
+
+Files derived from WorldEdit remain under the GNU GPLv3; the full text is in
+[LICENSE.txt](https://github.com/M9MX/survivaledit/blob/main/LICENSE.txt). Retain the upstream
 copyright and attribution notices.

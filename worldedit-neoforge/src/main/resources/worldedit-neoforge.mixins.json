@@ -9,6 +9,9 @@
     ],
     "server": [
     ],
+    "client": [
+        "MixinMinecraftToolUseDelay"
+    ],
     "injectors": {
         "defaultRequire": 1
     },

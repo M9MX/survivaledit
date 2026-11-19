@@ -34,8 +34,10 @@ import com.sk89q.worldedit.extension.platform.PlatformManager;
 import com.sk89q.worldedit.internal.anvil.ChunkDeleter;
 import com.sk89q.worldedit.internal.event.InteractionDebouncer;
 import com.sk89q.worldedit.internal.util.LogManagerCompat;
+import com.sk89q.worldedit.neoforge.ToolUseDelay;
 import com.sk89q.worldedit.neoforge.item.BrushSticks;
 import com.sk89q.worldedit.neoforge.item.SurvivalEditItems;
+import com.sk89q.worldedit.neoforge.net.handler.ToolUseDelayPacketHandler;
 import com.sk89q.worldedit.neoforge.net.handler.WECUIPacketHandler;
 import com.sk89q.worldedit.neoforge.survival.SurvivalEditListener;
 import com.sk89q.worldedit.neoforge.survival.SurvivalEditQueue;
@@ -87,6 +89,7 @@ import net.neoforged.neoforge.event.server.ServerAboutToStartEvent;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
+import net.neoforged.neoforge.network.PacketDistributor;
 import org.apache.logging.log4j.Logger;
 import org.enginehub.piston.Command;
 
@@ -137,6 +140,7 @@ public class NeoForgeWorldEdit {
 
         modBus.addListener(this::init);
         modBus.register(WECUIPacketHandler.class);
+        modBus.register(ToolUseDelayPacketHandler.class);
 
         SurvivalEditItems.ITEMS.register(modBus);
         SurvivalEditItems.TABS.register(modBus);
@@ -432,6 +436,15 @@ public class NeoForgeWorldEdit {
         // the command has changed the session.
         if (parseResults.getContext().getSource().getEntity() instanceof ServerPlayer player) {
             BrushSticks.refresh(player);
+        }
+    }
+
+    @SubscribeEvent
+    public void onPlayerLogin(PlayerEvent.PlayerLoggedInEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            // The client times the held right click, so it needs this server's setting.
+            PacketDistributor.sendToPlayer(player,
+                new ToolUseDelayPacketHandler.ToolUseDelayPacket(ToolUseDelay.configuredTicks()));
         }
     }
 

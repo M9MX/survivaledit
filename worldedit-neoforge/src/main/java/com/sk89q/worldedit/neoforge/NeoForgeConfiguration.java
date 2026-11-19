@@ -56,6 +56,8 @@ public class NeoForgeConfiguration extends PropertiesConfiguration {
     public boolean survivalFtbChunksClaims = true;
     /** Default payment provider: auto, inventory, or a registered provider id. */
     public String survivalPaymentProvider = "auto";
+    /** Repeat delay in ticks for a held SurvivalEdit tool. 0 repeats every tick; vanilla is 4. */
+    public int survivalToolUseDelay = 4;
 
     /** Blocks a survival edit may not overwrite, by exact block id. */
     public final Set<String> survivalProtectedBlocks = new HashSet<>();
@@ -183,6 +185,7 @@ public class NeoForgeConfiguration extends PropertiesConfiguration {
         survivalDropIfNetworkIsFull = getBool("survival.drop-if-network-is-full", survivalDropIfNetworkIsFull);
         survivalFtbChunksClaims = getBool("survival.ftb-chunks-claims", survivalFtbChunksClaims);
         survivalPaymentProvider = getString("survival.payment-provider", survivalPaymentProvider).trim().toLowerCase(Locale.ROOT);
+        survivalToolUseDelay = Math.max(0, getInt("survival.tool-use-delay-ticks", survivalToolUseDelay));
         if (!PaymentProviders.setPreference(survivalPaymentProvider)) {
             survivalPaymentProvider = "auto";
             PaymentProviders.setPreference("auto");
