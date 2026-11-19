@@ -368,9 +368,11 @@ public final class SurvivalHistory implements HistoryHook {
         SurvivalEditQueue.enqueueReplay(player, level, SurvivalEditJob.Kind.UNDO, record,
             diff.positions, diff.previous, reclaim, payment.sources());
 
-        String when = TIME.format(Instant.ofEpochMilli(record.created).atZone(ZoneId.systemDefault()));
-        actor.printInfo(TextComponent.of("Undoing the edit from " + when + " (" + record.blockCount
-            + " blocks). Anything that came from your storage is returned as it is removed."));
+        if (SurvivalMode.reports(record.blockCount)) {
+            String when = TIME.format(Instant.ofEpochMilli(record.created).atZone(ZoneId.systemDefault()));
+            actor.printInfo(TextComponent.of("Undoing the edit from " + when + " (" + record.blockCount
+                + " blocks). Anything that came from your storage is returned as it is removed."));
+        }
         return true;
     }
 
@@ -405,8 +407,10 @@ public final class SurvivalHistory implements HistoryHook {
         SurvivalEditQueue.enqueueReplay(player, level, SurvivalEditJob.Kind.REDO, record,
             diff.positions, diff.next, cost, payment.sources());
 
-        String when = TIME.format(Instant.ofEpochMilli(record.created).atZone(ZoneId.systemDefault()));
-        actor.printInfo(TextComponent.of("Redoing the edit from " + when + " (" + record.blockCount + " blocks)."));
+        if (SurvivalMode.reports(record.blockCount)) {
+            String when = TIME.format(Instant.ofEpochMilli(record.created).atZone(ZoneId.systemDefault()));
+            actor.printInfo(TextComponent.of("Redoing the edit from " + when + " (" + record.blockCount + " blocks)."));
+        }
         return true;
     }
 

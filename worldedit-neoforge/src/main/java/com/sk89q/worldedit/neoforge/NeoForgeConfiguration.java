@@ -48,6 +48,8 @@ public class NeoForgeConfiguration extends PropertiesConfiguration {
     public int survivalMaxBlocksPerEdit = 250_000;
     /** How many edits are kept per player, or 0 for no limit. */
     public int survivalHistoryLimit = 250;
+    /** Only report edits of at least this many blocks; 0 reports all, -1 reports none. */
+    public int survivalMessageThreshold = 0;
     /** Whether //schem and the clipboard save/load commands are allowed in survival. */
     public boolean survivalAllowSchematics = false;
     /** Whether items that do not fit anywhere are dropped on the ground instead of discarded. */
@@ -181,6 +183,7 @@ public class NeoForgeConfiguration extends PropertiesConfiguration {
         survivalPerChunkDelayMs = Math.max(0, getInt("survival.per-chunk-delay-ms", survivalPerChunkDelayMs));
         survivalMaxBlocksPerEdit = Math.max(0, getInt("survival.max-blocks-per-edit", survivalMaxBlocksPerEdit));
         survivalHistoryLimit = Math.max(0, getInt("survival.history-limit", survivalHistoryLimit));
+        survivalMessageThreshold = Math.max(-1, getInt("survival.message-threshold", survivalMessageThreshold));
         survivalAllowSchematics = getBool("survival.allow-schematics", survivalAllowSchematics);
         survivalDropIfNetworkIsFull = getBool("survival.drop-if-network-is-full", survivalDropIfNetworkIsFull);
         survivalFtbChunksClaims = getBool("survival.ftb-chunks-claims", survivalFtbChunksClaims);

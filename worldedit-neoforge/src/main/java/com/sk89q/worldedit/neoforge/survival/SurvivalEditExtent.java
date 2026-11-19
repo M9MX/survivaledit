@@ -168,7 +168,7 @@ public class SurvivalEditExtent extends AbstractBufferingExtent {
                         // Nothing is charged and WorldEdit reports the completion itself, so the
                         // edit only has to be applied a chunk at a time.
                         SurvivalEditQueue.enqueue(player, level, settled, kind, Map.of(), Map.of());
-                        SurvivalMessages.info(player, success(size, Map.of()));
+                        SurvivalMessages.editInfo(player, size, success(size, Map.of()));
                         return null;
                     }
 
@@ -187,7 +187,7 @@ public class SurvivalEditExtent extends AbstractBufferingExtent {
                     }
 
                     SurvivalEditQueue.enqueue(player, level, settled, kind, cost, payment.sources());
-                    SurvivalMessages.info(player, success(size, cost));
+                    SurvivalMessages.editInfo(player, size, success(size, cost));
                     return null;
                 } finally {
                     SurvivalPendingEdit.end(player.getUUID());

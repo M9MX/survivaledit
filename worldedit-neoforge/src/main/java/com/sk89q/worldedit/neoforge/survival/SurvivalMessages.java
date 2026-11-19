@@ -59,6 +59,18 @@ final class SurvivalMessages {
     }
 
     /**
+     * Sends a message about an edit, unless that edit is below the reporting threshold.
+     *
+     * <p>Small edits stay quiet: completion, what they returned, and what they skipped all follow
+     * the threshold. Only errors bypass it.</p>
+     */
+    static void editInfo(ServerPlayer player, int blocks, String message) {
+        if (SurvivalMode.reports(blocks)) {
+            info(player, message);
+        }
+    }
+
+    /**
      * Sends a refusal, in the same style as WorldEdit's own errors.
      */
     static void error(ServerPlayer player, String message) {

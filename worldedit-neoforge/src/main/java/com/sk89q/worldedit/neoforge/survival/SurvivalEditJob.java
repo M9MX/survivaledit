@@ -328,13 +328,14 @@ public final class SurvivalEditJob {
             }
 
             if (skippedProtected > 0) {
-                SurvivalMessages.info(player, "Left " + skippedProtected + " protected block"
-                    + (skippedProtected == 1 ? "" : "s") + " alone (survival.protected-blocks).");
+                SurvivalMessages.editInfo(player, size(), "Left " + skippedProtected
+                    + " protected block" + (skippedProtected == 1 ? "" : "s")
+                    + " alone (survival.protected-blocks).");
             }
 
             if (!refund.isEmpty()) {
                 storeRefundSources(refund, refundSources);
-                SurvivalMessages.info(player, kind == Kind.UNDO
+                SurvivalMessages.editInfo(player, size(), kind == Kind.UNDO
                     ? "Undo finished: returned " + ItemLedger.describe(refund) + "."
                     : "Returned " + ItemLedger.describe(refund) + " for blocks that were replaced.");
             }
@@ -401,7 +402,8 @@ public final class SurvivalEditJob {
                 }
             }
             storeRefundSources(back, backSources);
-            SurvivalMessages.info(player, "Returned " + ItemLedger.describe(back) + " for blocks that were not placed.");
+            SurvivalMessages.editInfo(player, size(),
+                "Returned " + ItemLedger.describe(back) + " for blocks that were not placed.");
         }
     }
 

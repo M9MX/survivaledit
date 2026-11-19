@@ -266,16 +266,12 @@ final class SurvivalEditApplier {
             newState.onPlace(world, pos, oldState, false);
         }
         if (SIDE_EFFECTS.shouldApply(SideEffect.NEIGHBORS)) {
-            if (SIDE_EFFECTS.shouldApply(SideEffect.EVENTS)) {
-                world.updateNeighborsAt(pos, oldState.getBlock());
-            } else {
-                Block block = oldState.getBlock();
-                world.neighborChanged(pos.west(), block, pos);
-                world.neighborChanged(pos.east(), block, pos);
-                world.neighborChanged(pos.below(), block, pos);
-                world.neighborChanged(pos.above(), block, pos);
-                world.neighborChanged(pos.north(), block, pos);
-                world.neighborChanged(pos.south(), block, pos);
+            // The same notifications vanilla sends for a hand-placed block: neighbours run their
+            // own update logic (a torch falls off, redstone reacts, sand is scheduled) and then
+            // recompute their shape, so fences, walls and panes reconnect to the new block.
+            world.blockUpdated(pos, newState.getBlock());
+            if (!newState.isAir()) {
+                newState.updateNeighbourShapes(world, pos, UPDATE_FLAGS);
             }
             if (newState.hasAnalogOutputSignal()) {
                 world.updateNeighbourForOutputSignal(pos, newState.getBlock());

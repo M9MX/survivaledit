@@ -297,6 +297,28 @@ public final class SurvivalMode {
         return config == null ? 250 : Math.max(0, config.survivalHistoryLimit);
     }
 
+    /**
+     * The smallest edit that is reported in chat, or {@code -1} when no edit is reported.
+     *
+     * <p>{@code 0} reports every edit. Refusals and refunds ignore this threshold: a player must
+     * always see why an edit stopped and what came back to them.</p>
+     */
+    public static int messageThreshold() {
+        NeoForgeConfiguration config = config();
+        return config == null ? 0 : Math.max(-1, config.survivalMessageThreshold);
+    }
+
+    /**
+     * Whether an edit of this many blocks should say anything at all.
+     *
+     * <p>Below the threshold an edit is silent, including what it returned; only errors are shown,
+     * because those are what the player has to act on.</p>
+     */
+    public static boolean reports(int blocks) {
+        int threshold = messageThreshold();
+        return threshold >= 0 && blocks >= threshold;
+    }
+
     /** Whether {@code //schem} and the clipboard save/load commands are allowed in survival. */
     public static boolean allowSchematics() {
         NeoForgeConfiguration config = config();

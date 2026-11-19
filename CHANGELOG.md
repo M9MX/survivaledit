@@ -26,6 +26,10 @@ This file records SurvivalEdit changes. The upstream WorldEdit history remains i
   data such as Copycats+ material data survives into undo and redo.
 - Removing a bought copycat or framed block with an edit or an undo no longer drops its material on
   the ground in addition to the refund, which duplicated the material.
+- Added `survival.message-threshold`: edits below it are silent, including their refund and
+  undo/redo lines. Only errors are always shown.
+- Edited blocks now notify their neighbours the way vanilla does, so fences, walls, and panes
+  reconnect and support-dependent blocks react to the change.
 - Block ownership records keep every item a bought block was paid with, so undo returns the whole
   price. Older claim files still load.
 - Improved shutdown finalization for queued edits.

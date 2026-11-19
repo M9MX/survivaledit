@@ -33,6 +33,8 @@ undone through persistent per-world history.
   - `//undo nearest` undoes the nearest applied edit in the current world.
   - `//redo` applies an undone edit and charges for it again.
 - Protection for blocks that should not be overwritten in survival.
+- Every written block notifies its neighbours, so connections, support, and redstone react as they
+  would to a block placed by hand.
 - Copycat and FramedBlocks appearance data is copied, pasted, and restored with the block.
 - A block costs what it is made of: four candles cost four candles, and a copycat is charged the
   material it mimics as well as the copycat itself.
@@ -127,6 +129,7 @@ Configuration is stored in `config/worldedit/worldedit.properties`.
 | `survival.per-chunk-delay-ms` | `0` | Delay before writing to the next chunk. |
 | `survival.max-blocks-per-edit` | `250000` | Maximum size of one edit; `0` disables the limit. |
 | `survival.history-limit` | `250` | Number of edits kept per player; `0` disables the limit. |
+| `survival.message-threshold` | `0` | Only report edits of at least this many blocks, including their refunds; `0` reports every edit, `-1` reports none. Errors are always shown. |
 | `survival.allow-schematics` | `false` | Allow schematic and clipboard use in survival. |
 | `survival.drop-if-network-is-full` | `true` | Drop returned items when storage cannot accept them. |
 | `survival.payment-provider` | `auto` | Payment mode: `auto`, `inventory`, or a registered provider id. |
