@@ -204,46 +204,69 @@ public final class SurvivalEditJob {
     }
 
     /**
-     * Spends one paid block from the budget, when the job is allowed to own the block it writes.
+     * Spends the items of one paid block from the budget, when the job is allowed to own it.
      *
-     * @return the item the block was bought with, or {@code null} when this job did not pay for it
+     * <p>A block can be paid with several items, so the whole cost has to fit. A copycat whose
+     * material is not left in the budget is not claimed at all, rather than half claimed.</p>
+     *
+     * @return the items the block was bought with, or {@code null} when this job did not pay for it
      */
     @Nullable
-    Item claimBudgetFor(BaseBlock target) {
+    Map<Item, Long> claimBudgetFor(BaseBlock target) {
         if (claimBudget.isEmpty()) {
             return null;
         }
-        Item item = ItemLedger.itemFor(target);
-        if (item == null) {
+        Map<Item, Long> needed = ItemLedger.costOf(target);
+        if (needed.isEmpty()) {
             return null;
         }
-        long left = claimBudget.getOrDefault(item, 0L);
-        if (left <= 0) {
-            return null;
+        for (Map.Entry<Item, Long> entry : needed.entrySet()) {
+            if (claimBudget.getOrDefault(entry.getKey(), 0L) < entry.getValue()) {
+                return null;
+            }
         }
-        claimBudget.put(item, left - 1);
-        return item;
+        for (Map.Entry<Item, Long> entry : needed.entrySet()) {
+            claimBudget.put(entry.getKey(), claimBudget.get(entry.getKey()) - entry.getValue());
+        }
+        return needed;
+    }
+
+    /** Where each item of a claimed block came from. */
+    Map<Item, String> claimSourcesFor(Map<Item, Long> items) {
+        Map<Item, String> sources = new LinkedHashMap<>();
+        for (Map.Entry<Item, Long> entry : items.entrySet()) {
+            String source = claimSourceFor(entry.getKey(), entry.getValue());
+            if (source != null) {
+                sources.put(entry.getKey(), source);
+            }
+        }
+        return sources;
     }
 
     @Nullable
-    String claimSourceFor(Item item) {
+    private String claimSourceFor(Item item, long units) {
         Map<String, Long> sources = claimSourceBudget.get(item);
         if (sources == null) {
             return null;
         }
+        String first = null;
         java.util.Iterator<Map.Entry<String, Long>> iterator = sources.entrySet().iterator();
-        while (iterator.hasNext()) {
+        while (iterator.hasNext() && units > 0) {
             Map.Entry<String, Long> entry = iterator.next();
-            long left = entry.getValue();
-            if (left > 0) {
-                entry.setValue(left - 1);
-                if (left == 1) {
-                    iterator.remove();
-                }
-                return entry.getKey();
+            long taken = Math.min(entry.getValue(), units);
+            if (taken <= 0) {
+                continue;
+            }
+            if (first == null) {
+                first = entry.getKey();
+            }
+            units -= taken;
+            entry.setValue(entry.getValue() - taken);
+            if (entry.getValue() <= 0) {
+                iterator.remove();
             }
         }
-        return null;
+        return first;
     }
 
     private static Map<Item, Map<String, Long>> copySources(
@@ -263,9 +286,11 @@ public final class SurvivalEditJob {
      */
     void refund(SurvivalClaims.Claim claim) {
         if (claim.owner.equals(player.getUUID())) {
-            refund.merge(claim.item, 1L, Long::sum);
-            refundSources.computeIfAbsent(claim.item, ignored -> new LinkedHashMap<>())
-                .merge(claim.source, 1L, Long::sum);
+            for (SurvivalClaims.Claim.Entry entry : claim.items) {
+                refund.merge(entry.item, entry.count, Long::sum);
+                refundSources.computeIfAbsent(entry.item, ignored -> new LinkedHashMap<>())
+                    .merge(entry.source, entry.count, Long::sum);
+            }
             return;
         }
         ServerPlayer owner = player.getServer() == null
@@ -278,7 +303,14 @@ public final class SurvivalEditJob {
                 claim.owner);
             return;
         }
-        SurvivalStocks.storeToSource(owner, claim.source, Map.of(claim.item, 1L));
+        Map<String, Map<Item, Long>> bySource = new LinkedHashMap<>();
+        for (SurvivalClaims.Claim.Entry entry : claim.items) {
+            bySource.computeIfAbsent(entry.source, ignored -> new LinkedHashMap<>())
+                .merge(entry.item, entry.count, Long::sum);
+        }
+        for (Map.Entry<String, Map<Item, Long>> entry : bySource.entrySet()) {
+            SurvivalStocks.storeToSource(owner, entry.getKey(), entry.getValue());
+        }
     }
 
     /**
@@ -334,10 +366,7 @@ public final class SurvivalEditJob {
         }
         Map<Item, Long> placed = new LinkedHashMap<>();
         for (BaseBlock block : nextStates) {
-            Item item = ItemLedger.itemFor(block);
-            if (item != null) {
-                placed.merge(item, 1L, Long::sum);
-            }
+            ItemLedger.addCost(placed, block);
         }
         Map<Item, Long> back = new LinkedHashMap<>();
         for (Map.Entry<Item, Long> entry : charged.entrySet()) {

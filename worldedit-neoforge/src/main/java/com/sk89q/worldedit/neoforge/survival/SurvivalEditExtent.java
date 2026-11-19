@@ -118,6 +118,22 @@ public class SurvivalEditExtent extends AbstractBufferingExtent {
                         return null;
                     }
 
+                    // The queue owns the buffer from here, and a later flush of the same session
+                    // starts a new one.
+                    BlockMap<BaseBlock> pending = blockMap;
+                    blockMap = BlockMap.createForBaseBlock();
+
+                    ServerLevel level = level();
+                    if (level == null) {
+                        SurvivalMessages.error(player, "Edit cancelled: that world is not available.");
+                        return null;
+                    }
+
+                    // Falling blocks are left to physics for now. SurvivalGravity can settle them
+                    // to their landing positions before the edit is costed and stored, but that is
+                    // disabled until it is reliable; this line is where it would go back in.
+                    BlockMap<BaseBlock> settled = pending;
+
                     // Protected blocks are checked before the edit is costed, so an edit that would
                     // destroy one takes nothing and writes nothing. The whole edit is refused
                     // rather than the offending positions being skipped: half a build is worse
@@ -131,26 +147,15 @@ public class SurvivalEditExtent extends AbstractBufferingExtent {
                         return null;
                     }
 
-                    // The queue owns the buffer from here, and a later flush of the same session
-                    // starts a new one.
-                    BlockMap<BaseBlock> pending = blockMap;
-                    blockMap = BlockMap.createForBaseBlock();
-
-                    int size = pending.size();
+                    int size = settled.size();
                     String limit = SurvivalEditQueue.reject(player, size, kind);
                     if (limit != null) {
                         SurvivalMessages.error(player, "Edit cancelled: " + limit + ".");
                         return null;
                     }
 
-                    ServerLevel level = level();
-                    if (level == null) {
-                        SurvivalMessages.error(player, "Edit cancelled: that world is not available.");
-                        return null;
-                    }
-
                     BlockVector3 blocked = FtbChunksClaims.firstBlocked(player, level,
-                        pending.keySet());
+                        settled.keySet());
                     if (blocked != null) {
                         SurvivalMessages.error(player, "Edit cancelled: " + blocked.x() + ", "
                             + blocked.y() + ", " + blocked.z()
@@ -162,12 +167,12 @@ public class SurvivalEditExtent extends AbstractBufferingExtent {
                     if (kind == SurvivalEditJob.Kind.FREE) {
                         // Nothing is charged and WorldEdit reports the completion itself, so the
                         // edit only has to be applied a chunk at a time.
-                        SurvivalEditQueue.enqueue(player, level, pending, kind, Map.of(), Map.of());
+                        SurvivalEditQueue.enqueue(player, level, settled, kind, Map.of(), Map.of());
                         SurvivalMessages.info(player, success(size, Map.of()));
                         return null;
                     }
 
-                    Map<Item, Long> cost = ItemLedger.costOf(pending);
+                    Map<Item, Long> cost = ItemLedger.costOf(settled);
                     SurvivalPayment.Result payment = SurvivalPayment.charge(player, cost);
                     if (!payment.paid()) {
                         MissingItemReport.report(player, payment.missing());
@@ -181,7 +186,7 @@ public class SurvivalEditExtent extends AbstractBufferingExtent {
                         return null;
                     }
 
-                    SurvivalEditQueue.enqueue(player, level, pending, kind, cost, payment.sources());
+                    SurvivalEditQueue.enqueue(player, level, settled, kind, cost, payment.sources());
                     SurvivalMessages.info(player, success(size, cost));
                     return null;
                 } finally {

@@ -425,10 +425,6 @@ public final class SurvivalHistory implements HistoryHook {
         String dimension = level.dimension().location().toString();
         Map<Item, Long> cost = new LinkedHashMap<>();
         for (int i = 0; i < positions.length; i++) {
-            Item item = ItemLedger.itemFor(targets[i]);
-            if (item == null) {
-                continue;
-            }
             net.minecraft.world.level.block.state.BlockState target = SurvivalEditJob.nativeState(targets[i]);
             if (target == null) {
                 continue;
@@ -439,7 +435,7 @@ public final class SurvivalHistory implements HistoryHook {
                 continue;
             }
             if (claims.isSpent(dimension, pos.asLong(), Block.getId(target))) {
-                cost.merge(item, 1L, Long::sum);
+                ItemLedger.addCost(cost, targets[i]);
             }
         }
         return cost;
@@ -449,17 +445,13 @@ public final class SurvivalHistory implements HistoryHook {
         Map<Item, Long> cost = new LinkedHashMap<>();
         for (int i = 0; i < diff.size(); i++) {
             BaseBlock next = diff.next[i];
-            Item item = ItemLedger.itemFor(next);
-            if (item == null) {
-                continue;
-            }
             BlockVector3 position = diff.positions[i];
             BlockPos pos = new BlockPos(position.x(), position.y(), position.z());
             net.minecraft.world.level.block.state.BlockState target = SurvivalEditJob.nativeState(next);
             if (target == null || level.getBlockState(pos).equals(target)) {
                 continue;
             }
-            cost.merge(item, 1L, Long::sum);
+            ItemLedger.addCost(cost, next);
         }
         return cost;
     }

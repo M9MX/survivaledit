@@ -23,10 +23,16 @@ import com.sk89q.worldedit.WorldEdit;
 import com.sk89q.worldedit.extension.input.InputParseException;
 import com.sk89q.worldedit.extension.input.ParserContext;
 import com.sk89q.worldedit.math.BlockVector3;
+import com.sk89q.worldedit.neoforge.internal.NBTConverter;
+import com.sk89q.worldedit.util.concurrency.LazyReference;
 import com.sk89q.worldedit.world.block.BaseBlock;
+import com.sk89q.worldedit.world.block.BlockTypes;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtIo;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
+import org.enginehub.linbus.tree.LinCompoundTag;
 
 import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
@@ -66,7 +72,7 @@ import java.util.zip.GZIPOutputStream;
 final class SurvivalEditRecord {
 
     private static final int MAGIC = 0x53454431; // "SED1"
-    private static final int FORMAT = 2;
+    private static final int FORMAT = 3;
 
     final long id;
     final long created;
@@ -82,13 +88,15 @@ final class SurvivalEditRecord {
     final Path file;
 
     private final long payloadOffset;
+    /** Whether palette entries keep their block data apart from the state text. */
+    private final boolean separateNbt;
     private @Nullable BlockDiff loaded;
 
     private SurvivalEditRecord(long id, long created, String dimension, boolean paid, int blockCount,
                                double centerX, double centerY, double centerZ,
                                Map<Item, Long> charged,
                                Map<Item, Map<String, Long>> chargedSources,
-                               Path file, long payloadOffset) {
+                               Path file, long payloadOffset, boolean separateNbt) {
         this.id = id;
         this.created = created;
         this.dimension = dimension;
@@ -101,6 +109,7 @@ final class SurvivalEditRecord {
         this.chargedSources = chargedSources;
         this.file = file;
         this.payloadOffset = payloadOffset;
+        this.separateNbt = separateNbt;
     }
 
     /**
@@ -114,7 +123,7 @@ final class SurvivalEditRecord {
                 throw new IOException("not a SurvivalEdit record: " + file);
             }
             int format = in.readInt();
-            if (format != FORMAT && format != 1) {
+            if (format != FORMAT && format != 2 && format != 1) {
                 throw new IOException("unsupported SurvivalEdit record format " + format + ": " + file);
             }
             int metaLength = in.readInt();
@@ -146,7 +155,8 @@ final class SurvivalEditRecord {
                     }
                 }
                 return new SurvivalEditRecord(id, created, dimension, paid, blockCount,
-                    centerX, centerY, centerZ, charged, chargedSources, file, payloadOffset);
+                    centerX, centerY, centerZ, charged, chargedSources, file, payloadOffset,
+                    format >= 3);
             }
         }
     }
@@ -165,7 +175,7 @@ final class SurvivalEditRecord {
         int count = positions.length;
 
         Map<String, Integer> paletteIndex = new HashMap<>();
-        List<String> palette = new ArrayList<>();
+        List<BaseBlock> palette = new ArrayList<>();
         int[] previousIds = new int[count];
         int[] nextIds = new int[count];
         for (int i = 0; i < count; i++) {
@@ -205,8 +215,12 @@ final class SurvivalEditRecord {
         ByteArrayOutputStream compressedBytes = new ByteArrayOutputStream();
         try (DataOutputStream out = new DataOutputStream(new GZIPOutputStream(compressedBytes))) {
             out.writeInt(palette.size());
-            for (String state : palette) {
-                out.writeUTF(state);
+            for (BaseBlock block : palette) {
+                // The state and the block entity data are stored apart: the text form of a whole
+                // block is a player-facing format, and some modded data cannot be read back through
+                // it. NBT goes in as NBT.
+                out.writeUTF(block.toImmutableState().getAsString());
+                writeNbt(out, block);
             }
             out.writeInt(count);
             long lastX = 0;
@@ -243,19 +257,36 @@ final class SurvivalEditRecord {
         }
 
         return new SurvivalEditRecord(id, created, dimension, paid, count, centerX, centerY, centerZ,
-            new LinkedHashMap<>(charged), copySources(chargedSources), file, payloadOffset);
+            new LinkedHashMap<>(charged), copySources(chargedSources), file, payloadOffset, true);
     }
 
-    private static int paletteId(List<String> palette, Map<String, Integer> index, @Nullable BaseBlock block) {
-        String state = block == null ? "minecraft:air" : block.getAsString();
-        Integer existing = index.get(state);
+    private static int paletteId(List<BaseBlock> palette, Map<String, Integer> index,
+                                 @Nullable BaseBlock block) {
+        BaseBlock entry = block == null ? BlockTypes.AIR.getDefaultState().toBaseBlock() : block;
+        String key = entry.getAsString();
+        Integer existing = index.get(key);
         if (existing != null) {
             return existing;
         }
         int id = palette.size();
-        palette.add(state);
-        index.put(state, id);
+        palette.add(entry);
+        index.put(key, id);
         return id;
+    }
+
+    private static void writeNbt(DataOutputStream out, BaseBlock block) throws IOException {
+        LinCompoundTag nbt = block.getNbt();
+        if (nbt == null) {
+            out.writeInt(0);
+            return;
+        }
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (DataOutputStream data = new DataOutputStream(bytes)) {
+            NbtIo.write(NBTConverter.toNative(nbt), data);
+        }
+        byte[] payload = bytes.toByteArray();
+        out.writeInt(payload.length);
+        out.write(payload);
     }
 
     private static void writeSigned(DataOutputStream out, long value) throws IOException {
@@ -377,7 +408,9 @@ final class SurvivalEditRecord {
                 int paletteSize = in.readInt();
                 BaseBlock[] palette = new BaseBlock[paletteSize];
                 for (int i = 0; i < paletteSize; i++) {
-                    palette[i] = parse(in.readUTF());
+                    String state = in.readUTF();
+                    byte[] nbt = separateNbt ? readNbt(in) : null;
+                    palette[i] = nbt == null ? parse(state) : withNbt(parse(state), nbt);
                 }
                 int count = in.readInt();
                 if (count < 0) {
@@ -412,6 +445,31 @@ final class SurvivalEditRecord {
             throw new IOException("damaged palette in SurvivalEdit record");
         }
         return id;
+    }
+
+    private static @Nullable byte[] readNbt(DataInputStream in) throws IOException {
+        int length = in.readInt();
+        if (length < 0 || length > 1 << 24) {
+            throw new IOException("damaged block data in SurvivalEdit record");
+        }
+        if (length == 0) {
+            return null;
+        }
+        byte[] payload = new byte[length];
+        in.readFully(payload);
+        return payload;
+    }
+
+    private static BaseBlock withNbt(BaseBlock block, byte[] payload) throws IOException {
+        CompoundTag tag;
+        try (DataInputStream in = new DataInputStream(new ByteArrayInputStream(payload))) {
+            tag = NbtIo.read(in);
+        }
+        if (tag == null) {
+            return block;
+        }
+        LinCompoundTag nbt = NBTConverter.fromNative(tag);
+        return block.toImmutableState().toBaseBlock(LazyReference.from(() -> nbt));
     }
 
     private static BaseBlock parse(String state) throws IOException {

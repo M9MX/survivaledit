@@ -19,6 +19,15 @@ This file records SurvivalEdit changes. The upstream WorldEdit history remains i
 - Protected paid edits from overwriting block entities that contain item or inventory data.
 - Copy, paste, and undo now carry the appearance data of Create copycats, Copycats+, and
   FramedBlocks, so copied facades keep the block they mimic.
+- Edits are now charged for the material a copycat or framed block mimics, in addition to the
+  copycat itself.
+- Edits are now charged per item of a block state; four candles cost four candles, not one.
+- Stored edits now keep block entity data in binary form instead of a text form, so modded block
+  data such as Copycats+ material data survives into undo and redo.
+- Removing a bought copycat or framed block with an edit or an undo no longer drops its material on
+  the ground in addition to the refund, which duplicated the material.
+- Block ownership records keep every item a bought block was paid with, so undo returns the whole
+  price. Older claim files still load.
 - Improved shutdown finalization for queued edits.
 
 ### SurvivalEdit functionality

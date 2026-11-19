@@ -66,7 +66,7 @@ final class SurvivalClaims {
     private static final Logger LOGGER = LogManager.getLogger();
 
     private static final int MAGIC = 0x53454331; // "SEC1"
-    private static final int FORMAT = 2;
+    private static final int FORMAT = 3;
 
     private static @Nullable SurvivalClaims instance;
 
@@ -88,19 +88,53 @@ final class SurvivalClaims {
 
     /**
      * One bought block: who paid for it, with what, and which state it was.
+     *
+     * <p>A block can be paid with several items: a copycat is the copycat plus the block it is
+     * dressed up as, and a candle block of four candles is four candles. Everything that was paid
+     * has to come back, so a claim keeps every item, not just one.</p>
      */
     static final class Claim {
 
+        /** One item of a claim, with where it came from so it can be returned there. */
+        static final class Entry {
+
+            final Item item;
+            final long count;
+            final String source;
+
+            Entry(Item item, long count, String source) {
+                this.item = item;
+                this.count = count;
+                this.source = source;
+            }
+        }
+
         final UUID owner;
-        final Item item;
-        final String source;
+        final List<Entry> items;
         final int state;
 
-        Claim(UUID owner, Item item, String source, int state) {
+        Claim(UUID owner, List<Entry> items, int state) {
             this.owner = owner;
-            this.item = item;
-            this.source = source;
+            this.items = items;
             this.state = state;
+        }
+
+        /** The items of this claim, by item. */
+        Map<Item, Long> amounts() {
+            Map<Item, Long> amounts = new java.util.LinkedHashMap<>();
+            for (Entry entry : items) {
+                amounts.merge(entry.item, entry.count, Long::sum);
+            }
+            return amounts;
+        }
+
+        /** The first source named for each item, for putting it back. */
+        Map<Item, String> sources() {
+            Map<Item, String> sources = new java.util.LinkedHashMap<>();
+            for (Entry entry : items) {
+                sources.putIfAbsent(entry.item, entry.source);
+            }
+            return sources;
         }
     }
 
@@ -148,6 +182,14 @@ final class SurvivalClaims {
     }
 
     /**
+     * Whether this exact block is still owned by a player, so removing it pays items back.
+     */
+    boolean hasLiveClaim(String dimension, long position, int state) {
+        Claim claim = world(dimension).live.get(position);
+        return claim != null && claim.state == state;
+    }
+
+    /**
      * Whether this exact block was refunded at this position before.
      */
     boolean isSpent(String dimension, long position, int state) {
@@ -158,8 +200,20 @@ final class SurvivalClaims {
     /**
      * Records that the block now standing at this position was bought by the given player.
      */
-    void claim(String dimension, long position, int state, UUID owner, Item item, String source) {
-        world(dimension).live.put(position, new Claim(owner, item, source, state));
+    void claim(String dimension, long position, int state, UUID owner, Map<Item, Long> items,
+               Map<Item, String> sources) {
+        List<Claim.Entry> entries = new ArrayList<>();
+        for (Map.Entry<Item, Long> entry : items.entrySet()) {
+            if (entry.getValue() <= 0) {
+                continue;
+            }
+            entries.add(new Claim.Entry(entry.getKey(), entry.getValue(),
+                sources.getOrDefault(entry.getKey(), "inventory")));
+        }
+        if (entries.isEmpty()) {
+            return;
+        }
+        world(dimension).live.put(position, new Claim(owner, entries, state));
         touch(dimension);
     }
 
@@ -223,7 +277,7 @@ final class SurvivalClaims {
                 throw new IOException("not a SurvivalEdit claim file: " + file);
             }
             int format = in.readInt();
-            if (format != FORMAT && format != 1) {
+            if (format != FORMAT && format != 2 && format != 1) {
                 throw new IOException("unsupported SurvivalEdit claim format " + format + ": " + file);
             }
             readClaims(in, world.live, format);
@@ -239,12 +293,27 @@ final class SurvivalClaims {
             long position = in.readLong();
             int state = in.readInt();
             UUID owner = new UUID(in.readLong(), in.readLong());
-            Item item = item(in.readUTF());
-            if (item == null) {
-                continue;
+            List<Claim.Entry> entries = new ArrayList<>();
+            if (format >= 3) {
+                int items = in.readInt();
+                for (int j = 0; j < items; j++) {
+                    Item item = item(in.readUTF());
+                    long amount = in.readLong();
+                    String source = in.readUTF();
+                    if (item != null && amount > 0) {
+                        entries.add(new Claim.Entry(item, amount, source));
+                    }
+                }
+            } else {
+                Item item = item(in.readUTF());
+                String source = format >= 2 ? in.readUTF() : "inventory";
+                if (item != null) {
+                    entries.add(new Claim.Entry(item, 1, source));
+                }
             }
-            String source = format >= 2 ? in.readUTF() : "inventory";
-            into.put(position, new Claim(owner, item, source, state));
+            if (!entries.isEmpty()) {
+                into.put(position, new Claim(owner, entries, state));
+            }
         }
     }
 
@@ -282,8 +351,12 @@ final class SurvivalClaims {
             out.writeInt(claim.state);
             out.writeLong(claim.owner.getMostSignificantBits());
             out.writeLong(claim.owner.getLeastSignificantBits());
-            out.writeUTF(BuiltInRegistries.ITEM.getKey(claim.item).toString());
-            out.writeUTF(claim.source);
+            out.writeInt(claim.items.size());
+            for (Claim.Entry item : claim.items) {
+                out.writeUTF(BuiltInRegistries.ITEM.getKey(item.item).toString());
+                out.writeLong(item.count);
+                out.writeUTF(item.source);
+            }
         }
     }
 

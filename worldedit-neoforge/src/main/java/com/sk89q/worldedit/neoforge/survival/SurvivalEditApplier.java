@@ -128,10 +128,16 @@ final class SurvivalEditApplier {
                 continue;
             }
 
+            // A copycat or framed block drops its material when it is removed, and this edit pays
+            // the material back through the ownership ledger instead. Telling the block that it is
+            // being moved by a piston suppresses that drop, so the block cannot be paid out twice.
+            // Blocks the player placed by hand are not claimed, so those still drop as usual.
+            boolean movedByPiston = dropsWhenRemoved(oldState) && hasLiveClaim(job, pos, oldState);
+
             // Captured before the write: undoing this has to bring the old copycat material or
             // framed camo back, not just the block state.
             BaseBlock previousFull = fullBlock(job.level, pos, oldState);
-            BlockState replaced = chunk.setBlockState(pos, target, false,
+            BlockState replaced = chunk.setBlockState(pos, target, movedByPiston,
                 SIDE_EFFECTS.shouldApply(SideEffect.UPDATE));
             BlockState previous = replaced != null ? replaced : oldState;
             BaseBlock writtenBlock = targetBlock;
@@ -182,16 +188,27 @@ final class SurvivalEditApplier {
 
         SurvivalClaims.Claim returning = claims.unspend(dimension, key, targetId);
         if (returning != null) {
-            claims.claim(dimension, key, targetId, job.player.getUUID(), returning.item, returning.source);
+            claims.claim(dimension, key, targetId, job.player.getUUID(),
+                returning.amounts(), returning.sources());
             return;
         }
 
-        Item item = job.claimBudgetFor(job.targets[index]);
-        if (item != null) {
-            String source = job.claimSourceFor(item);
-            claims.claim(dimension, key, targetId, job.player.getUUID(), item,
-                source == null ? "inventory" : source);
+        java.util.Map<Item, Long> items = job.claimBudgetFor(job.targets[index]);
+        if (items != null) {
+            claims.claim(dimension, key, targetId, job.player.getUUID(), items,
+                job.claimSourcesFor(items));
         }
+    }
+
+    /** Whether this block is a copycat or framed block, which drops its material on removal. */
+    private static boolean dropsWhenRemoved(BlockState state) {
+        return SurvivalBlockEntities.isAppearanceEntity(state.getBlock().getClass().getName());
+    }
+
+    /** Whether the block standing here was bought and not refunded yet. */
+    private static boolean hasLiveClaim(SurvivalEditJob job, BlockPos pos, BlockState state) {
+        SurvivalClaims claims = SurvivalClaims.get();
+        return claims != null && claims.hasLiveClaim(job.dimension, pos.asLong(), Block.getId(state));
     }
 
     /**

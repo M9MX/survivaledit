@@ -34,6 +34,8 @@ undone through persistent per-world history.
   - `//redo` applies an undone edit and charges for it again.
 - Protection for blocks that should not be overwritten in survival.
 - Copycat and FramedBlocks appearance data is copied, pasted, and restored with the block.
+- A block costs what it is made of: four candles cost four candles, and a copycat is charged the
+  material it mimics as well as the copycat itself.
 - Protection rules by block, mod namespace, or block tag.
 - Optional survival schematic support.
 - WorldEditCUI compatibility through the `worldedit` channel.
@@ -75,6 +77,11 @@ block entities from Create's copycats, Copycats+, and FramedBlocks travel with t
 copied facade keeps the block it mimics. `/stop` and server shutdown finalize queued jobs: applied
 changes are kept, history is stored, and unpaid remaining blocks are returned through the active
 payment providers.
+
+The cost of an edit follows the blocks in it rather than the number of positions. State that holds
+several items is charged per item, and a copycat or framed block is charged the copycat plus the
+mimicked material. Falling blocks such as sand behave as they do in vanilla: they are placed where
+the edit put them and fall from there.
 
 History and claim data are stored per world. A history from one save cannot be applied to another
 save.

@@ -59,6 +59,19 @@ final class SurvivalBlockEntities {
         return className.toLowerCase(Locale.ROOT).contains("copycat");
     }
 
+    /**
+     * Whether saved block entity data belongs to FramedBlocks or a copycat mod.
+     *
+     * <p>Used on data that has no block entity to ask, such as a copied block in an edit.</p>
+     */
+    static boolean isAppearanceTag(CompoundTag tag) {
+        if (tag.contains("camo") || tag.contains("material")) {
+            return true;
+        }
+        String id = tag.getString("id").toLowerCase(Locale.ROOT);
+        return id.contains("copycat") || id.startsWith("framedblocks:");
+    }
+
     /** Whether a tag carries items, which must never leave the block they are in. */
     static boolean hasItemContents(CompoundTag tag) {
         return SurvivalMode.compoundHasItemContents(tag);
