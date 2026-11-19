@@ -33,6 +33,7 @@ undone through persistent per-world history.
   - `//undo nearest` undoes the nearest applied edit in the current world.
   - `//redo` applies an undone edit and charges for it again.
 - Protection for blocks that should not be overwritten in survival.
+- Copycat and FramedBlocks appearance data is copied, pasted, and restored with the block.
 - Protection rules by block, mod namespace, or block tag.
 - Optional survival schematic support.
 - WorldEditCUI compatibility through the `worldedit` channel.
@@ -69,9 +70,11 @@ refunded once if it is still identifiable as a purchased block. Blocks that were
 through SurvivalEdit are not refunded.
 
 A paid edit is refused before payment if it would overwrite a block entity containing items or
-inventory-like data. Empty block entities are not covered by this contents check. `/stop` and
-server shutdown finalize queued jobs: applied changes are kept, history is stored, and unpaid
-remaining blocks are returned through the active payment providers.
+inventory-like data. Empty block entities are not covered by this contents check. Appearance-only
+block entities from Create's copycats, Copycats+, and FramedBlocks travel with their block, so a
+copied facade keeps the block it mimics. `/stop` and server shutdown finalize queued jobs: applied
+changes are kept, history is stored, and unpaid remaining blocks are returned through the active
+payment providers.
 
 History and claim data are stored per world. A history from one save cannot be applied to another
 save.

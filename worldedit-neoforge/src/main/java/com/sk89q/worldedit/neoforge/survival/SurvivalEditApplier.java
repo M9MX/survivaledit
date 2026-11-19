@@ -22,13 +22,17 @@ package com.sk89q.worldedit.neoforge.survival;
 import com.sk89q.worldedit.math.BlockVector3;
 import com.sk89q.worldedit.neoforge.NeoForgeAdapter;
 import com.sk89q.worldedit.neoforge.internal.ExtendedChunk;
+import com.sk89q.worldedit.neoforge.internal.NBTConverter;
 import com.sk89q.worldedit.util.SideEffect;
 import com.sk89q.worldedit.util.SideEffectSet;
+import com.sk89q.worldedit.util.concurrency.LazyReference;
 import com.sk89q.worldedit.world.block.BaseBlock;
 import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -106,7 +110,10 @@ final class SurvivalEditApplier {
             job.retries = 0;
 
             BlockState oldState = job.level.getBlockState(pos);
-            if (oldState.equals(target)) {
+            BaseBlock targetBlock = job.targets[index];
+            // A copycat's material lives in its block entity, so an equal state is not enough to
+            // call this a no-op: the data still has to be written.
+            if (oldState.equals(target) && targetBlock.getNbt() == null) {
                 job.cursor++;
                 continue;
             }
@@ -121,16 +128,27 @@ final class SurvivalEditApplier {
                 continue;
             }
 
+            // Captured before the write: undoing this has to bring the old copycat material or
+            // framed camo back, not just the block state.
+            BaseBlock previousFull = fullBlock(job.level, pos, oldState);
             BlockState replaced = chunk.setBlockState(pos, target, false,
                 SIDE_EFFECTS.shouldApply(SideEffect.UPDATE));
             BlockState previous = replaced != null ? replaced : oldState;
+            BaseBlock writtenBlock = targetBlock;
+            if (replaced != null || targetBlock.getNbt() != null) {
+                writtenBlock = applyBlockEntityData(job.level, pos, targetBlock);
+            }
             if (replaced != null) {
                 applySideEffects(job.level, chunk, pos, replaced, target);
                 updateClaims(job, index, pos, replaced, target);
+            } else if (targetBlock.getNbt() != null) {
+                // Only the data changed, so the block is unchanged for every neighbour; nothing
+                // needs updating except the clients showing it.
+                job.level.getChunkSource().blockChanged(pos);
             }
 
-            job.previousStates.add(toBaseBlock(previous));
-            job.nextStates.add(job.targets[index]);
+            job.previousStates.add(previousFull);
+            job.nextStates.add(writtenBlock);
             job.changedPositions.add(position);
             job.cursor++;
             written++;
@@ -176,8 +194,45 @@ final class SurvivalEditApplier {
         }
     }
 
-    private static BaseBlock toBaseBlock(BlockState state) {
-        return NeoForgeAdapter.adapt(state).toBaseBlock();
+    /**
+     * The block at a position, with the block entity data an edit is allowed to carry.
+     *
+     * <p>Only appearance data is included, so an undo cannot restore an inventory that a paid edit
+     * was never allowed to copy.</p>
+     */
+    private static BaseBlock fullBlock(ServerLevel level, BlockPos pos, BlockState state) {
+        BaseBlock base = NeoForgeAdapter.adapt(state).toBaseBlock();
+        BlockEntity blockEntity = level.getBlockEntity(pos);
+        if (!SurvivalBlockEntities.isCopyable(blockEntity)) {
+            return base;
+        }
+        CompoundTag tag = blockEntity.saveWithId(level.registryAccess());
+        if (SurvivalBlockEntities.hasItemContents(tag)) {
+            return base;
+        }
+        return base.toBaseBlock(LazyReference.from(() -> NBTConverter.fromNative(tag)));
+    }
+
+    /**
+     * Loads copied block entity data onto the block that was just written.
+     *
+     * @return the block as it will be recorded for undo, without data that was refused
+     */
+    private static BaseBlock applyBlockEntityData(ServerLevel level, BlockPos pos, BaseBlock block) {
+        if (block.getNbt() == null) {
+            return block;
+        }
+        BlockEntity blockEntity = level.getBlockEntity(pos);
+        if (!SurvivalBlockEntities.isCopyable(blockEntity)) {
+            return block.toImmutableState().toBaseBlock();
+        }
+        CompoundTag tag = NBTConverter.toNative(block.getNbt());
+        if (SurvivalBlockEntities.hasItemContents(tag)) {
+            return block.toImmutableState().toBaseBlock();
+        }
+        blockEntity.loadWithComponents(tag, level.registryAccess());
+        blockEntity.setChanged();
+        return block;
     }
 
     private static ExtendedChunk getChunk(ServerLevel level, int chunkX, int chunkZ) {

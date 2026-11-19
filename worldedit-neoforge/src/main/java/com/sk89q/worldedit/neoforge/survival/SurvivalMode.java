@@ -215,7 +215,7 @@ public final class SurvivalMode {
         }
     }
 
-    private static boolean compoundHasItemContents(CompoundTag compound) {
+    static boolean compoundHasItemContents(CompoundTag compound) {
         for (String key : compound.getAllKeys()) {
             Tag value = compound.get(key);
             if (value instanceof ListTag list

@@ -17,6 +17,8 @@ This file records SurvivalEdit changes. The upstream WorldEdit history remains i
 - Added nearby chest/container payment within a 2-block radius, including modded `Container`
   block entities.
 - Protected paid edits from overwriting block entities that contain item or inventory data.
+- Copy, paste, and undo now carry the appearance data of Create copycats, Copycats+, and
+  FramedBlocks, so copied facades keep the block they mimic.
 - Improved shutdown finalization for queued edits.
 
 ### SurvivalEdit functionality
